@@ -6,12 +6,16 @@ description = "git2prompt is a command-line tool that takes a GitHub repository 
 readme = "README.md"
 license = "Apache-2.0"
 repository = "https://github.com/fabiomolinar/git2prompt"
-categories = ["command-line-interface", "parsing"]
+categories = [
+    "command-line-interface", 
+    "parsing",
+    "text-processing"
+]
 keywords = [
     "command-line",
     "parser",
     "crawler",
-    "AI prompt",
+    "AI",
     "git2prompt"
 ]
 edition = "2024"
