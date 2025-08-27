@@ -8,7 +8,7 @@ Refer to `git2prompt --help` or `cargo run -- --help` for more information.
 
 ## Filtering
 
-To remove certain files or folders from the output, you can add them to the `.git2promptignore` file. Alternatively, you can also pass a file path to the `--ignore-file` flag.
+To remove certain files or folders from the output, you can add them to the `.git2promptignore` file at the binary root. Alternatively, you can also pass a file path to the `--ignore-file` flag.
 
 
 Certain files and folders are automatically ignored by git2prompt:
@@ -18,7 +18,7 @@ Certain files and folders are automatically ignored by git2prompt:
 
 ## Rust reminders
 
-As I am starting my journey with Rust, here it goes a few reminders:
+As I am starting my journey with Rust, here it goes a few reminders so I don't have to Google them all the time:
 
 - To create a new project, run `cargo new <project-name>`.
 - To build the project, run `cargo build`.
