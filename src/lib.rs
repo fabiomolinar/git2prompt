@@ -5,8 +5,33 @@ use futures::future::join_all;
 use std::path::{Path, PathBuf};
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
-use git2::Repository;
+use git2::Repository as Git2Repository;
 use walkdir::WalkDir;
+use std::sync::Arc;
+
+/// Holds repository-specific data
+#[derive(Clone, Debug)]
+struct Repository {
+    url: String,
+    name: String,
+    path: PathBuf,
+    content: Option<String>, // Will be filled after processing
+}
+
+impl Repository {
+    fn new(base_download_dir: &Path, url: &str) -> Self {
+        let repo_url = format!("https://github.com/{}.git", url);
+        let repo_name = url.replace("/", "-");
+        let path = base_download_dir.join(&repo_name);
+
+        Self {
+            url: repo_url,
+            name: repo_name,
+            path: path,
+            content: None,
+        }
+    }
+}
 
 /// Processes a list of GitHub URLs concurrently, downloads and processes content,
 /// and prepares it for AI tools.
@@ -25,22 +50,18 @@ pub async fn process_github_urls(
     ensure_directories(&download_dir, &output_dir).await?;
 
     // Read ignore patterns from the specified file if provided
-    let ignore_patterns = read_ignore_patterns(ignore_file).await?;
+    let ignore_patterns = Arc::new(read_ignore_patterns(ignore_file).await?);
 
     // Prepare tasks for concurrent downloading and processing
     let processing_tasks: Vec<_> = urls.iter().map(|url| {
-        let repo_url = format!("https://github.com/{}.git", url);
-        let repo_name = url.replace("/", "-");
-        let clone_path = download_dir.join(&repo_name);
-        let no_headers_clone = no_headers;
-        let merge_files_clone = merge_files;
-        let ignore_patterns_clone = ignore_patterns.clone();
+        let repository = Repository::new(&download_dir, url);
+        let ignore_patterns = Arc::clone(&ignore_patterns);
         
         // Spawn a new task that handles both clone and file processing
         tokio::spawn(async move {
             process_single_repository(
-                repo_url, repo_name, clone_path, no_headers_clone,
-                merge_files_clone, ignore_patterns_clone,
+                repository, no_headers,
+                merge_files, ignore_patterns
             ).await
         })
     }).collect();
@@ -59,22 +80,23 @@ pub async fn process_github_urls(
 }
 
 async fn handle_results(
-    results: Vec<Result<Result<(String, String), String>, tokio::task::JoinError>>, merge_files: bool, output_dir: &Path
+    results: Vec<Result<Result<Repository, String>, tokio::task::JoinError>>, merge_files: bool, output_dir: &Path
 ) -> Result<Vec<PathBuf>, String> {
     let mut output_paths = Vec::new();
     let mut all_processed_content = String::new();
 
     for result in results {
         match result {
-            Ok(Ok((repo_name, content))) => {
+            Ok(Ok(repository)) => {
+                let content = &repository.content.unwrap_or(String::new());
                 if merge_files {
-                    all_processed_content.push_str(&format!("## Repository: {}\n", repo_name));
-                    all_processed_content.push_str(&content);
+                    all_processed_content.push_str(&format!("## Repository: {}\n", repository.name));
+                    all_processed_content.push_str(content);
                 } else {
-                    let output_file_name = format!("{}_processed.md", repo_name);
+                    let output_file_name = format!("{}_processed.md", repository.name);
                     let output_path = output_dir.join(output_file_name);
-                    let mut final_content = String::from(format!("# Repository: {}\n", repo_name));
-                    final_content.push_str(&content);
+                    let mut final_content = String::from(format!("# Repository: {}\n", repository.name));
+                    final_content.push_str(content);
                     write_content_to_file(&output_path, &final_content).await?;
                     output_paths.push(output_path);
                 }
@@ -94,23 +116,23 @@ async fn handle_results(
 }
 
 async fn process_single_repository(
-    repo_url: String,
-    repo_name: String,
-    path: PathBuf,
+    mut repository: Repository,
     no_headers: bool,
     merge_files: bool,
-    ignore_patterns: Vec<String>) -> Result<(String, String), String> {
-    println!("Preparing to clone {} to {:?}", repo_url, path);
+    ignore_patterns: Arc<Vec<String>>) -> Result<Repository, String> {
+    println!("Preparing to clone {} to {:?}", repository.url, repository.path);
     
     // Clone the repository
-    clone_repository(&repo_url, &path).await?;
-    println!("Successfully cloned {} to {:?}", repo_name, path);
+    clone_repository(&repository).await?;
+    println!("Successfully cloned {} to {:?}", repository.name, repository.path);
     
     // Process the files in the cloned repository
-    let content = process_repository_files(&path, no_headers, merge_files, ignore_patterns).await?;
+    let content = process_repository_files(&repository.path, no_headers, merge_files, &ignore_patterns).await?;
+
+    repository.content = Some(content);
     
     // Return the processed content and its associated info
-    Ok::<(String, String), String>((repo_name, content))
+    Ok::<Repository, String>(repository)
 }
 
 async fn ensure_directories(download_dir: &Path, output_dir: &Path) -> Result<(), String> {
@@ -143,11 +165,11 @@ async fn read_ignore_patterns(ignore_file: Option<PathBuf>) -> Result<Vec<String
 }
 
 // Clones a Git repository asynchronously
-async fn clone_repository(repo_url: &str, path: &Path) -> Result<Repository, String> {
-    let repo_url_owned = repo_url.to_string();
-    let path_owned = path.to_path_buf();
+async fn clone_repository(repository: &Repository) -> Result<Git2Repository, String> {
+    let repo_url_owned = repository.url.to_string();
+    let path_owned = repository.path.to_path_buf();
     tokio::task::spawn_blocking(move || {
-        Repository::clone(&repo_url_owned, &path_owned)
+        Git2Repository::clone(&repo_url_owned, &path_owned)
             .map_err(|e| format!("Git clone error: {}", e))
     })
     .await
@@ -155,7 +177,7 @@ async fn clone_repository(repo_url: &str, path: &Path) -> Result<Repository, Str
 }
 
 // Processes all files in a cloned repository, concatenating their content.
-async fn process_repository_files(repo_path: &Path, no_headers: bool, merge_files: bool, ignore_patterns: Vec<String>) -> Result<String, String> {
+async fn process_repository_files(repo_path: &Path, no_headers: bool, merge_files: bool, ignore_patterns: &Vec<String>) -> Result<String, String> {
     let mut combined_content = String::new();
 
     for entry in WalkDir::new(repo_path).into_iter().filter_map(|e| e.ok()) {
@@ -275,25 +297,25 @@ mod tests {
         let src_main_path = PathBuf::from("src").join("main.rs");
         let readme_path = PathBuf::from("README.md");
         
-        let content_with_headers = process_repository_files(&test_repo_path, false, false, Vec::new()).await.unwrap();
+        let content_with_headers = process_repository_files(&test_repo_path, false, false, &Vec::new()).await.unwrap();
         assert!(content_with_headers.contains(&format!("## File: {}", src_main_path.display())));
         assert!(content_with_headers.contains("fn main() { println!(\"Hello\"); }"));
         assert!(content_with_headers.contains(&format!("## File: {}", readme_path.display())));
         assert!(content_with_headers.contains("# Test Repo"));
 
-        let content_no_headers = process_repository_files(&test_repo_path, true, false, Vec::new()).await.unwrap();
+        let content_no_headers = process_repository_files(&test_repo_path, true, false, &Vec::new()).await.unwrap();
         assert!(!content_no_headers.contains(&format!("## File: {}", src_main_path.display())));
         assert!(content_no_headers.contains("fn main() { println!(\"Hello\"); }"));
         assert!(!content_no_headers.contains(&format!("## File: {}", readme_path.display())));
         assert!(content_no_headers.contains("# Test Repo"));
 
-        let content_with_headers_merged = process_repository_files(&test_repo_path, false, true, Vec::new()).await.unwrap();
+        let content_with_headers_merged = process_repository_files(&test_repo_path, false, true, &Vec::new()).await.unwrap();
         assert!(content_with_headers_merged.contains(&format!("### File: {}", src_main_path.display())));
         assert!(content_with_headers_merged.contains("fn main() { println!(\"Hello\"); }"));
         assert!(content_with_headers_merged.contains(&format!("### File: {}", readme_path.display())));
         assert!(content_with_headers_merged.contains("# Test Repo"));
 
-        let content_no_headers_merged = process_repository_files(&test_repo_path, true, true, Vec::new()).await.unwrap();
+        let content_no_headers_merged = process_repository_files(&test_repo_path, true, true, &Vec::new()).await.unwrap();
         assert!(!content_no_headers_merged.contains(&format!("### File: {}", src_main_path.display())));
         assert!(content_no_headers_merged.contains("fn main() { println!(\"Hello\"); }"));
         assert!(!content_no_headers_merged.contains(&format!("### File: {}", readme_path.display())));
@@ -330,7 +352,7 @@ mod tests {
 
         let ignore_patterns = vec!["data/".to_string(), "README.md".to_string(), "src\\main.rs".to_string()];
 
-        let content = process_repository_files(&test_repo_path, true, true, ignore_patterns).await.unwrap();
+        let content = process_repository_files(&test_repo_path, true, true, &ignore_patterns).await.unwrap();
 
         // Check that ignored files are not in the output
         assert!(!content.contains("secret.txt"));
