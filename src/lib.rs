@@ -12,6 +12,7 @@ pub async fn process_github_urls(
     urls: Vec<String>,
     no_headers: bool,
     merge_files: bool,
+    ignore_file: Option<PathBuf>,
 ) -> Result<Vec<PathBuf>, String> {
     println!("Library received URLs: {:?}, no_headers: {}, merge_files: {}", urls, no_headers, merge_files);
 
@@ -26,12 +27,28 @@ pub async fn process_github_urls(
         .await
         .map_err(|e| format!("Failed to create output directory: {}", e))?;
 
+    // Read ignore patterns from the specified file if provided
+    let ignore_patterns: Vec<String> = if let Some(path) = ignore_file {
+        if path.exists() {
+            let content = fs::read_to_string(&path)
+                .await
+                .map_err(|e| format!("Failed to read ignore file {:?}: {}", path, e))?;
+            content.lines().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
+        } else {
+            eprintln!("Warning: Ignore file {:?} not found. Proceeding without ignore patterns.", path);
+            Vec::new()
+        }
+    } else {
+        Vec::new()
+    };
+
     // Prepare tasks for concurrent downloading and processing
     let processing_tasks: Vec<_> = urls.iter().map(|url| {
         let repo_url = format!("https://github.com/{}.git", url);
         let repo_name = url.replace("/", "-");
         let clone_path = download_dir.join(&repo_name);
         let no_headers_clone = no_headers;
+        let ignore_patterns_clone = ignore_patterns.clone();
         
         // Spawn a new task that handles both clone and file processing
         tokio::spawn(async move {
@@ -42,7 +59,7 @@ pub async fn process_github_urls(
             println!("Successfully cloned {} to {:?}", repo_name, clone_path);
             
             // Process the files in the cloned repository
-            let content = process_repository_files(&clone_path, no_headers_clone).await?;
+            let content = process_repository_files(&clone_path, no_headers_clone, ignore_patterns_clone).await?;
             
             // Return the processed content and its associated info
             Ok::<(String, String), String>((repo_name, content))
@@ -100,20 +117,33 @@ async fn clone_repository(repo_url: &str, path: &Path) -> Result<Repository, Str
 }
 
 // Processes all files in a cloned repository, concatenating their content.
-async fn process_repository_files(repo_path: &Path, no_headers: bool) -> Result<String, String> {
+async fn process_repository_files(repo_path: &Path, no_headers: bool, ignore_patterns: Vec<String>) -> Result<String, String> {
     let mut combined_content = String::new();
 
     for entry in WalkDir::new(repo_path).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
+        
+        // Ignore .git directory and its contents by checking path components
+        if path.components().any(|c| c.as_os_str() == ".git") {
+            continue;
+        }
+
+        // Check if the file or its parent directory matches any ignore patterns
+        let relative_path_str = path.strip_prefix(repo_path)
+            .map_err(|e| format!("Failed to strip prefix: {}", e))?
+            .to_string_lossy();
+        
+        if ignore_patterns.iter().any(|pattern| relative_path_str.contains(pattern)) {
+            println!("Ignoring file/folder: {}", relative_path_str);
+            continue;
+        }
+        
         if path.is_file() {
-            // Basic filtering: ignore common non-source files and git artifacts
+            // Basic filtering: ignore common non-source files
             if let Some(ext) = path.extension().and_then(|s| s.to_str())
                 && matches!(ext, "png" | "jpg" | "jpeg" | "gif" | "zip" | "tar" | "gz" | "bin" | "o" | "so" | "dll") {
                     continue; // Skip binary or archive files
-            }
-            if path.to_string_lossy().contains(".git/") {
-                continue; // Skip git internal files
-            }
+            }        
 
             if let Ok(content) = fs::read_to_string(path).await {
                 let relative_path = path.strip_prefix(repo_path)
