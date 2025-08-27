@@ -19,31 +19,13 @@ pub async fn process_github_urls(
 ) -> Result<Vec<PathBuf>, String> {
     println!("Library received URLs: {:?}, no_headers: {}, merge_files: {}", urls, no_headers, merge_files);
 
+    // Prepare directories
     let download_dir = PathBuf::from("./temp_repos"); // Temporary directory for cloning
     let output_dir = PathBuf::from("./output"); // Directory for final output files
-
-    // Create the temporary download directory if it doesn't exist
-    fs::create_dir_all(&download_dir)
-        .await
-        .map_err(|e| format!("Failed to create download directory: {}", e))?;
-    fs::create_dir_all(&output_dir)
-        .await
-        .map_err(|e| format!("Failed to create output directory: {}", e))?;
+    ensure_directories(&download_dir, &output_dir).await?;
 
     // Read ignore patterns from the specified file if provided
-    let ignore_patterns: Vec<String> = if let Some(path) = ignore_file {
-        if path.exists() {
-            let content = fs::read_to_string(&path)
-                .await
-                .map_err(|e| format!("Failed to read ignore file {:?}: {}", path, e))?;
-            content.lines().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
-        } else {
-            eprintln!("Warning: Ignore file {:?} not found. Proceeding without ignore patterns.", path);
-            Vec::new()
-        }
-    } else {
-        Vec::new()
-    };
+    let ignore_patterns = read_ignore_patterns(ignore_file).await?;
 
     // Prepare tasks for concurrent downloading and processing
     let processing_tasks: Vec<_> = urls.iter().map(|url| {
@@ -56,17 +38,10 @@ pub async fn process_github_urls(
         
         // Spawn a new task that handles both clone and file processing
         tokio::spawn(async move {
-            println!("Preparing to clone {} to {:?}", repo_url, clone_path);
-            
-            // Clone the repository
-            clone_repository(&repo_url, &clone_path).await?;
-            println!("Successfully cloned {} to {:?}", repo_name, clone_path);
-            
-            // Process the files in the cloned repository
-            let content = process_repository_files(&clone_path, no_headers_clone, merge_files_clone, ignore_patterns_clone).await?;
-            
-            // Return the processed content and its associated info
-            Ok::<(String, String), String>((repo_name, content))
+            process_single_repository(
+                repo_url, repo_name, clone_path, no_headers_clone,
+                merge_files_clone, ignore_patterns_clone,
+            ).await
         })
     }).collect();
 
@@ -109,6 +84,57 @@ pub async fn process_github_urls(
         .map_err(|e| format!("Failed to remove temporary download directory: {}", e))?;
 
     Ok(output_paths)
+}
+
+
+
+async fn process_single_repository(
+    repo_url: String,
+    repo_name: String,
+    path: PathBuf,
+    no_headers: bool,
+    merge_files: bool,
+    ignore_patterns: Vec<String>) -> Result<(String, String), String> {
+    println!("Preparing to clone {} to {:?}", repo_url, path);
+    
+    // Clone the repository
+    clone_repository(&repo_url, &path).await?;
+    println!("Successfully cloned {} to {:?}", repo_name, path);
+    
+    // Process the files in the cloned repository
+    let content = process_repository_files(&path, no_headers, merge_files, ignore_patterns).await?;
+    
+    // Return the processed content and its associated info
+    Ok::<(String, String), String>((repo_name, content))
+}
+
+async fn ensure_directories(download_dir: &Path, output_dir: &Path) -> Result<(), String> {
+    // Create the temporary download directory if it doesn't exist
+    fs::create_dir_all(&download_dir)
+        .await
+        .map_err(|e| format!("Failed to create download directory: {}", e))?;
+    fs::create_dir_all(&output_dir)
+        .await
+        .map_err(|e| format!("Failed to create output directory: {}", e))?;
+    Ok(())
+}
+
+// Read ignore patterns from the specified file if provided
+async fn read_ignore_patterns(ignore_file: Option<PathBuf>) -> Result<Vec<String>, String> {
+    let ignore_patterns: Vec<String> = if let Some(path) = ignore_file {
+        if path.exists() {
+            let content = fs::read_to_string(&path)
+                .await
+                .map_err(|e| format!("Failed to read ignore file {:?}: {}", path, e))?;
+            content.lines().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect()
+        } else {
+            eprintln!("Warning: Ignore file {:?} not found. Proceeding without ignore patterns.", path);
+            Vec::new()
+        }
+    } else {
+        Vec::new()
+    };
+    Ok(ignore_patterns)
 }
 
 // Clones a Git repository asynchronously
