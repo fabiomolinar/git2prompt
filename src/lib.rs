@@ -236,11 +236,10 @@ mod tests {
         let _cleanup = TestCleanup::new(&test_repo_path);
         setup_dummy_repo(&test_repo_path).await?;
 
-        let content_with_headers = process_repository_files(&test_repo_path, false, false, Vec::new()).await.unwrap();
-        
         let src_main_path = PathBuf::from("src").join("main.rs");
         let readme_path = PathBuf::from("README.md");
-
+        
+        let content_with_headers = process_repository_files(&test_repo_path, false, false, Vec::new()).await.unwrap();
         assert!(content_with_headers.contains(&format!("## File: {}", src_main_path.display())));
         assert!(content_with_headers.contains("fn main() { println!(\"Hello\"); }"));
         assert!(content_with_headers.contains(&format!("## File: {}", readme_path.display())));
@@ -251,6 +250,18 @@ mod tests {
         assert!(content_no_headers.contains("fn main() { println!(\"Hello\"); }"));
         assert!(!content_no_headers.contains(&format!("## File: {}", readme_path.display())));
         assert!(content_no_headers.contains("# Test Repo"));
+
+        let content_with_headers_merged = process_repository_files(&test_repo_path, false, true, Vec::new()).await.unwrap();
+        assert!(content_with_headers_merged.contains(&format!("### File: {}", src_main_path.display())));
+        assert!(content_with_headers_merged.contains("fn main() { println!(\"Hello\"); }"));
+        assert!(content_with_headers_merged.contains(&format!("### File: {}", readme_path.display())));
+        assert!(content_with_headers_merged.contains("# Test Repo"));
+
+        let content_no_headers_merged = process_repository_files(&test_repo_path, true, true, Vec::new()).await.unwrap();
+        assert!(!content_no_headers_merged.contains(&format!("## File: {}", src_main_path.display())));
+        assert!(content_no_headers_merged.contains("fn main() { println!(\"Hello\"); }"));
+        assert!(!content_no_headers_merged.contains(&format!("## File: {}", readme_path.display())));
+        assert!(content_no_headers_merged.contains("# Test Repo"));
 
         Ok(())
     }
