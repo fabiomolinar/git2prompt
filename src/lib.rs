@@ -51,6 +51,7 @@ pub async fn process_github_urls(
         let repo_name = url.replace("/", "-");
         let clone_path = download_dir.join(&repo_name);
         let no_headers_clone = no_headers;
+        let merge_files_clone = merge_files;
         let ignore_patterns_clone = ignore_patterns.clone();
         
         // Spawn a new task that handles both clone and file processing
@@ -62,7 +63,7 @@ pub async fn process_github_urls(
             println!("Successfully cloned {} to {:?}", repo_name, clone_path);
             
             // Process the files in the cloned repository
-            let content = process_repository_files(&clone_path, no_headers_clone, ignore_patterns_clone).await?;
+            let content = process_repository_files(&clone_path, no_headers_clone, merge_files_clone, ignore_patterns_clone).await?;
             
             // Return the processed content and its associated info
             Ok::<(String, String), String>((repo_name, content))
@@ -79,12 +80,14 @@ pub async fn process_github_urls(
         match result {
             Ok(Ok((repo_name, content))) => {
                 if merge_files {
-                    all_processed_content.push_str(&format!("\n\n--- Repository: {} ---\n\n", repo_name));
+                    all_processed_content.push_str(&format!("## Repository: {}\n", repo_name));
                     all_processed_content.push_str(&content);
                 } else {
-                    let output_file_name = format!("{}_processed.txt", repo_name);
+                    let output_file_name = format!("{}_processed.md", repo_name);
                     let output_path = output_dir.join(output_file_name);
-                    write_content_to_file(&output_path, &content).await?;
+                    let mut final_content = String::from(format!("# Repository: {}\n", repo_name));
+                    final_content.push_str(&content);
+                    write_content_to_file(&output_path, &final_content).await?;
                     output_paths.push(output_path);
                 }
             },
@@ -94,8 +97,9 @@ pub async fn process_github_urls(
     }
 
     if merge_files && !all_processed_content.is_empty() {
-        let output_path = output_dir.join("all_repos_processed.txt");
-        write_content_to_file(&output_path, &all_processed_content).await?;
+        let output_path = output_dir.join("all_repos_processed.md");
+        let final_content = String::from("# Merged Repository Contents\n") + &all_processed_content;
+        write_content_to_file(&output_path, &final_content).await?;
         output_paths.push(output_path);
     }
 
@@ -120,7 +124,7 @@ async fn clone_repository(repo_url: &str, path: &Path) -> Result<Repository, Str
 }
 
 // Processes all files in a cloned repository, concatenating their content.
-async fn process_repository_files(repo_path: &Path, no_headers: bool, ignore_patterns: Vec<String>) -> Result<String, String> {
+async fn process_repository_files(repo_path: &Path, no_headers: bool, merge_files: bool, ignore_patterns: Vec<String>) -> Result<String, String> {
     let mut combined_content = String::new();
 
     for entry in WalkDir::new(repo_path).into_iter().filter_map(|e| e.ok()) {
@@ -146,14 +150,19 @@ async fn process_repository_files(repo_path: &Path, no_headers: bool, ignore_pat
             if let Some(ext) = path.extension().and_then(|s| s.to_str())
                 && matches!(ext, "png" | "jpg" | "jpeg" | "gif" | "zip" | "tar" | "gz" | "bin" | "o" | "so" | "dll") {
                     continue; // Skip binary or archive files
-            }        
+            }
+            let with_headers = !no_headers;        
 
             if let Ok(content) = fs::read_to_string(path).await {
                 let relative_path = path.strip_prefix(repo_path)
                     .map_err(|e| format!("Failed to strip prefix: {}", e))?;
                 let alias = get_language_alias(path);
-                if !no_headers {
-                    combined_content.push_str(&format!("--- File: {} ---\n", relative_path.display()));
+                if with_headers {
+                    if merge_files {
+                        combined_content.push_str(&format!("### File: {}\n", relative_path.display()));
+                    } else {
+                        combined_content.push_str(&format!("## File: {}\n", relative_path.display()));
+                    }
                 }
                 combined_content.push_str(&format!("```{}\n", alias));
                 combined_content.push_str(&content);
@@ -227,20 +236,20 @@ mod tests {
         let _cleanup = TestCleanup::new(&test_repo_path);
         setup_dummy_repo(&test_repo_path).await?;
 
-        let content_with_headers = process_repository_files(&test_repo_path, false, Vec::new()).await.unwrap();
+        let content_with_headers = process_repository_files(&test_repo_path, false, false, Vec::new()).await.unwrap();
         
         let src_main_path = PathBuf::from("src").join("main.rs");
         let readme_path = PathBuf::from("README.md");
 
-        assert!(content_with_headers.contains(&format!("--- File: {} ---", src_main_path.display())));
+        assert!(content_with_headers.contains(&format!("## File: {}", src_main_path.display())));
         assert!(content_with_headers.contains("fn main() { println!(\"Hello\"); }"));
-        assert!(content_with_headers.contains(&format!("--- File: {} ---", readme_path.display())));
+        assert!(content_with_headers.contains(&format!("## File: {}", readme_path.display())));
         assert!(content_with_headers.contains("# Test Repo"));
 
-        let content_no_headers = process_repository_files(&test_repo_path, true, Vec::new()).await.unwrap();
-        assert!(!content_no_headers.contains(&format!("--- File: {} ---", src_main_path.display())));
+        let content_no_headers = process_repository_files(&test_repo_path, true, false, Vec::new()).await.unwrap();
+        assert!(!content_no_headers.contains(&format!("## File: {}", src_main_path.display())));
         assert!(content_no_headers.contains("fn main() { println!(\"Hello\"); }"));
-        assert!(!content_no_headers.contains(&format!("--- File: {} ---", readme_path.display())));
+        assert!(!content_no_headers.contains(&format!("## File: {}", readme_path.display())));
         assert!(content_no_headers.contains("# Test Repo"));
 
         Ok(())
