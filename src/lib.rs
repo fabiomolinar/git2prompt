@@ -137,7 +137,7 @@ async fn process_repository_files(repo_path: &Path, no_headers: bool, ignore_pat
             println!("Ignoring file/folder: {}", relative_path_str);
             continue;
         }
-        
+
         if path.is_file() {
             // Basic filtering: ignore common non-source files
             if let Some(ext) = path.extension().and_then(|s| s.to_str())
@@ -171,4 +171,90 @@ async fn write_content_to_file(path: &Path, content: &str) -> Result<(), String>
         .await
         .map_err(|e| format!("Failed to write to output file {:?}: {}", path, e))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::io::Result;
+    use std::path::{Path, PathBuf};
+
+    /// A helper struct that cleans up a file or directory when it goes out of scope.
+    struct TestCleanup {
+        path: PathBuf,
+    }
+
+    impl TestCleanup {
+        fn new(path: &Path) -> Self {
+            Self { path: path.to_path_buf() }
+        }
+    }
+
+    /// Implement the Drop trait to ensure cleanup on success or failure.
+    impl Drop for TestCleanup {
+        fn drop(&mut self) {
+            if self.path.exists() {
+                if self.path.is_dir() {
+                    if let Err(e) = fs::remove_dir_all(&self.path) {
+                        eprintln!("Failed to clean up test directory {:?}: {}", self.path, e);
+                    }
+                } else if self.path.is_file() {
+                    if let Err(e) = fs::remove_file(&self.path) {
+                        eprintln!("Failed to clean up test file {:?}: {}", self.path, e);
+                    }
+                }
+            }
+        }
+    }
+
+    /// A helper function to create a dummy repository structure for testing.
+    async fn setup_dummy_repo(path: &Path) -> Result<()> {
+        fs::create_dir_all(path.join("src"))?;
+        fs::write(path.join("src/main.rs"), "fn main() { println!(\"Hello\"); }")?;
+        fs::write(path.join("README.md"), "# Test Repo")?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_process_repository_files() -> Result<()> {
+        let test_repo_path = PathBuf::from("test_temp_repo");
+        // Create a cleanup instance. It will automatically remove the directory when the function ends.
+        let _cleanup = TestCleanup::new(&test_repo_path);
+        setup_dummy_repo(&test_repo_path).await?;
+
+        let content_with_headers = process_repository_files(&test_repo_path, false, Vec::new()).await.unwrap();
+        
+        let src_main_path = PathBuf::from("src").join("main.rs");
+        let readme_path = PathBuf::from("README.md");
+
+        assert!(content_with_headers.contains(&format!("--- File: {} ---", src_main_path.display())));
+        assert!(content_with_headers.contains("fn main() { println!(\"Hello\"); }"));
+        assert!(content_with_headers.contains(&format!("--- File: {} ---", readme_path.display())));
+        assert!(content_with_headers.contains("# Test Repo"));
+
+        let content_no_headers = process_repository_files(&test_repo_path, true, Vec::new()).await.unwrap();
+        assert!(!content_no_headers.contains(&format!("--- File: {} ---", src_main_path.display())));
+        assert!(content_no_headers.contains("fn main() { println!(\"Hello\"); }"));
+        assert!(!content_no_headers.contains(&format!("--- File: {} ---", readme_path.display())));
+        assert!(content_no_headers.contains("# Test Repo"));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_write_content_to_file() -> Result<()> {
+        let test_dir = PathBuf::from("test_temp_dir");
+        let _cleanup = TestCleanup::new(&test_dir);
+        fs::create_dir_all(&test_dir)?;
+        
+        let test_file = test_dir.join("test_output.txt");
+        let test_content = "This is a test content.";
+        write_content_to_file(&test_file, test_content).await.unwrap();
+
+        let read_content = fs::read_to_string(&test_file)?;
+        assert_eq!(read_content, test_content);
+
+        Ok(())
+    }
 }
