@@ -14,6 +14,11 @@ impl Repository {
         let name = repo_url.replace("/", "-");
         let path = base_download_dir.join(&name);
 
-        Self { url, name, path, content: None }
+        Self {
+            url,
+            name,
+            path,
+            content: None,
+        }
     }
 }

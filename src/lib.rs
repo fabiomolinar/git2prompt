@@ -1,15 +1,15 @@
-pub mod repository;
-pub mod io_utils;
 pub mod git_utils;
+pub mod io_utils;
 pub mod processing;
+pub mod repository;
 
-use repository::Repository;
-use processing::process_single_repository;
-use io_utils::{ensure_directories, read_ignore_patterns};
-use tokio::fs;
-use std::path::PathBuf;
 use futures::future::join_all;
+use io_utils::{ensure_directories, read_ignore_patterns};
+use processing::process_single_repository;
+use repository::Repository;
+use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::fs;
 
 /// Processes a list of GitHub URLs concurrently, downloads and processes content,
 /// and prepares it for AI tools.
@@ -19,7 +19,10 @@ pub async fn process_github_urls(
     merge_files: bool,
     ignore_file: Option<PathBuf>,
 ) -> Result<Vec<PathBuf>, String> {
-    println!("Library received URLs: {:?}, no_headers: {}, merge_files: {}", urls, no_headers, merge_files);
+    println!(
+        "Library received URLs: {:?}, no_headers: {}, merge_files: {}",
+        urls, no_headers, merge_files
+    );
 
     // Prepare directories
     let download_dir = PathBuf::from("./temp_repos");
@@ -30,13 +33,17 @@ pub async fn process_github_urls(
     let ignore_patterns = Arc::new(read_ignore_patterns(ignore_file).await?);
 
     // Spawn processing tasks
-    let tasks: Vec<_> = urls.iter().map(|url| {
-        let repository = Repository::new(&download_dir, url);
-        let ignore_patterns = Arc::clone(&ignore_patterns);
-        tokio::spawn(async move {
-            process_single_repository(repository, no_headers, merge_files, ignore_patterns).await
+    let tasks: Vec<_> = urls
+        .iter()
+        .map(|url| {
+            let repository = Repository::new(&download_dir, url);
+            let ignore_patterns = Arc::clone(&ignore_patterns);
+            tokio::spawn(async move {
+                process_single_repository(repository, no_headers, merge_files, ignore_patterns)
+                    .await
+            })
         })
-    }).collect();
+        .collect();
 
     let results = join_all(tasks).await;
 

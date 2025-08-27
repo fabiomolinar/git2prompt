@@ -1,7 +1,7 @@
-use git2prompt::{processing, io_utils};
+use git2prompt::{io_utils, processing};
+use std::fs as stdfs;
 use std::path::PathBuf;
 use tokio::fs;
-use std::fs as stdfs;
 
 /// A helper struct that cleans up a file or directory when it goes out of scope.
 struct TestCleanup {
@@ -33,7 +33,11 @@ impl Drop for TestCleanup {
 /// Helper to create a dummy repository
 async fn setup_dummy_repo(path: &PathBuf) -> std::io::Result<()> {
     fs::create_dir_all(path.join("src")).await?;
-    fs::write(path.join("src/main.rs"), "fn main() { println!(\"Hello\"); }").await?;
+    fs::write(
+        path.join("src/main.rs"),
+        "fn main() { println!(\"Hello\"); }",
+    )
+    .await?;
     fs::write(path.join("README.md"), "# Test Repo").await?;
     Ok(())
 }
@@ -47,31 +51,43 @@ async fn test_process_repository_files() -> Result<(), Box<dyn std::error::Error
     use processing::process_repository_files;
 
     let src_main_path = PathBuf::from("src").join("main.rs");
-	let readme_path = PathBuf::from("README.md");
+    let readme_path = PathBuf::from("README.md");
 
-	let content_with_headers = process_repository_files(&test_repo_path, false, false, &Vec::new()).await.unwrap();
-	assert!(content_with_headers.contains(&format!("## File: {}", src_main_path.display())));
-	assert!(content_with_headers.contains("fn main() { println!(\"Hello\"); }"));
-	assert!(content_with_headers.contains(&format!("## File: {}", readme_path.display())));
-	assert!(content_with_headers.contains("# Test Repo"));
+    let content_with_headers = process_repository_files(&test_repo_path, false, false, &Vec::new())
+        .await
+        .unwrap();
+    assert!(content_with_headers.contains(&format!("## File: {}", src_main_path.display())));
+    assert!(content_with_headers.contains("fn main() { println!(\"Hello\"); }"));
+    assert!(content_with_headers.contains(&format!("## File: {}", readme_path.display())));
+    assert!(content_with_headers.contains("# Test Repo"));
 
-	let content_no_headers = process_repository_files(&test_repo_path, true, false, &Vec::new()).await.unwrap();
-	assert!(!content_no_headers.contains(&format!("## File: {}", src_main_path.display())));
-	assert!(content_no_headers.contains("fn main() { println!(\"Hello\"); }"));
-	assert!(!content_no_headers.contains(&format!("## File: {}", readme_path.display())));
-	assert!(content_no_headers.contains("# Test Repo"));
+    let content_no_headers = process_repository_files(&test_repo_path, true, false, &Vec::new())
+        .await
+        .unwrap();
+    assert!(!content_no_headers.contains(&format!("## File: {}", src_main_path.display())));
+    assert!(content_no_headers.contains("fn main() { println!(\"Hello\"); }"));
+    assert!(!content_no_headers.contains(&format!("## File: {}", readme_path.display())));
+    assert!(content_no_headers.contains("# Test Repo"));
 
-	let content_with_headers_merged = process_repository_files(&test_repo_path, false, true, &Vec::new()).await.unwrap();
-	assert!(content_with_headers_merged.contains(&format!("### File: {}", src_main_path.display())));
-	assert!(content_with_headers_merged.contains("fn main() { println!(\"Hello\"); }"));
-	assert!(content_with_headers_merged.contains(&format!("### File: {}", readme_path.display())));
-	assert!(content_with_headers_merged.contains("# Test Repo"));
+    let content_with_headers_merged =
+        process_repository_files(&test_repo_path, false, true, &Vec::new())
+            .await
+            .unwrap();
+    assert!(
+        content_with_headers_merged.contains(&format!("### File: {}", src_main_path.display()))
+    );
+    assert!(content_with_headers_merged.contains("fn main() { println!(\"Hello\"); }"));
+    assert!(content_with_headers_merged.contains(&format!("### File: {}", readme_path.display())));
+    assert!(content_with_headers_merged.contains("# Test Repo"));
 
-	let content_no_headers_merged = process_repository_files(&test_repo_path, true, true, &Vec::new()).await.unwrap();
-	assert!(!content_no_headers_merged.contains(&format!("### File: {}", src_main_path.display())));
-	assert!(content_no_headers_merged.contains("fn main() { println!(\"Hello\"); }"));
-	assert!(!content_no_headers_merged.contains(&format!("### File: {}", readme_path.display())));
-	assert!(content_no_headers_merged.contains("# Test Repo"));
+    let content_no_headers_merged =
+        process_repository_files(&test_repo_path, true, true, &Vec::new())
+            .await
+            .unwrap();
+    assert!(!content_no_headers_merged.contains(&format!("### File: {}", src_main_path.display())));
+    assert!(content_no_headers_merged.contains("fn main() { println!(\"Hello\"); }"));
+    assert!(!content_no_headers_merged.contains(&format!("### File: {}", readme_path.display())));
+    assert!(content_no_headers_merged.contains("# Test Repo"));
 
     Ok(())
 }
@@ -106,10 +122,11 @@ async fn test_ignore_patterns_cross_platform() -> Result<(), Box<dyn std::error:
     let ignore_patterns = vec![
         "data/".to_string(),
         "README.md".to_string(),
-        "src\\main.rs".to_string()
+        "src\\main.rs".to_string(),
     ];
 
-    let content = processing::process_repository_files(&test_repo_path, true, true, &ignore_patterns).await?;
+    let content =
+        processing::process_repository_files(&test_repo_path, true, true, &ignore_patterns).await?;
 
     // Ignored files should not be in the output
     assert!(!content.contains("secret.txt"));

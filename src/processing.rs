@@ -1,10 +1,10 @@
-use crate::repository::Repository;
 use crate::git_utils::clone_repository;
-use crate::io_utils::{write_content_to_file, get_language_alias};
+use crate::io_utils::{get_language_alias, write_content_to_file};
+use crate::repository::Repository;
+use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::fs;
 use walkdir::WalkDir;
-use std::sync::Arc;
-use std::path::PathBuf;
 
 /// Process a single repository: clone and process files
 pub async fn process_single_repository(
@@ -13,11 +13,19 @@ pub async fn process_single_repository(
     merge_files: bool,
     ignore_patterns: Arc<Vec<String>>,
 ) -> Result<Repository, String> {
-    println!("Preparing to clone {} to {:?}", repository.url, repository.path);
+    println!(
+        "Preparing to clone {} to {:?}",
+        repository.url, repository.path
+    );
     clone_repository(&repository).await?;
-    println!("Successfully cloned {} to {:?}", repository.name, repository.path);
+    println!(
+        "Successfully cloned {} to {:?}",
+        repository.name, repository.path
+    );
 
-    let content = process_repository_files(&repository.path, no_headers, merge_files, &ignore_patterns).await?;
+    let content =
+        process_repository_files(&repository.path, no_headers, merge_files, &ignore_patterns)
+            .await?;
     repository.content = Some(content);
 
     Ok(repository)
@@ -39,15 +47,18 @@ pub async fn process_repository_files(
             let with_headers = !no_headers;
 
             if let Ok(content) = fs::read_to_string(path).await {
-                let relative_path = path.strip_prefix(repo_path)
+                let relative_path = path
+                    .strip_prefix(repo_path)
                     .map_err(|e| format!("Failed to strip prefix: {}", e))?;
                 let alias = get_language_alias(path);
 
                 if with_headers {
                     if merge_files {
-                        combined_content.push_str(&format!("### File: {}\n", relative_path.display()));
+                        combined_content
+                            .push_str(&format!("### File: {}\n", relative_path.display()));
                     } else {
-                        combined_content.push_str(&format!("## File: {}\n", relative_path.display()));
+                        combined_content
+                            .push_str(&format!("## File: {}\n", relative_path.display()));
                     }
                 }
                 combined_content.push_str(&format!("```{}\n", alias));
@@ -97,23 +108,43 @@ pub async fn handle_results(
 }
 
 /// Check if a file should be processed
-fn is_valid_file(path: &std::path::Path, repo_path: &std::path::Path, ignore_patterns: &[String]) -> bool {
-    if path.components().any(|c| c.as_os_str() == ".git") { return false; }
-    if ignore_due_to_pattern(path, repo_path, ignore_patterns) { return false; }
-    if !path.is_file() { return false; }
+fn is_valid_file(
+    path: &std::path::Path,
+    repo_path: &std::path::Path,
+    ignore_patterns: &[String],
+) -> bool {
+    if path.components().any(|c| c.as_os_str() == ".git") {
+        return false;
+    }
+    if ignore_due_to_pattern(path, repo_path, ignore_patterns) {
+        return false;
+    }
+    if !path.is_file() {
+        return false;
+    }
 
     if let Some(ext) = path.extension().and_then(|s| s.to_str())
-        && matches!(ext, "png" | "jpg" | "jpeg" | "gif" | "zip" | "tar" | "gz" | "bin" | "o" | "so" | "dll") {
+        && matches!(
+            ext,
+            "png" | "jpg" | "jpeg" | "gif" | "zip" | "tar" | "gz" | "bin" | "o" | "so" | "dll"
+        )
+    {
         return false;
     }
 
     true
 }
 
-fn ignore_due_to_pattern(path: &std::path::Path, repo_path: &std::path::Path, ignore_patterns: &[String]) -> bool {
+fn ignore_due_to_pattern(
+    path: &std::path::Path,
+    repo_path: &std::path::Path,
+    ignore_patterns: &[String],
+) -> bool {
     let relative_path_str = match path.strip_prefix(repo_path) {
         Ok(p) => p.to_string_lossy().replace("\\", "/"),
         Err(_) => return false,
     };
-    ignore_patterns.iter().any(|pattern| relative_path_str.contains(&pattern.replace("\\", "/")))
+    ignore_patterns
+        .iter()
+        .any(|pattern| relative_path_str.contains(&pattern.replace("\\", "/")))
 }
