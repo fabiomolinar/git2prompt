@@ -107,10 +107,9 @@ async fn process_repository_files(repo_path: &Path, no_headers: bool) -> Result<
         let path = entry.path();
         if path.is_file() {
             // Basic filtering: ignore common non-source files and git artifacts
-            if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-                if matches!(ext, "png" | "jpg" | "jpeg" | "gif" | "zip" | "tar" | "gz" | "bin" | "o" | "so" | "dll") {
+            if let Some(ext) = path.extension().and_then(|s| s.to_str())
+                && matches!(ext, "png" | "jpg" | "jpeg" | "gif" | "zip" | "tar" | "gz" | "bin" | "o" | "so" | "dll") {
                     continue; // Skip binary or archive files
-                }
             }
             if path.to_string_lossy().contains(".git/") {
                 continue; // Skip git internal files
