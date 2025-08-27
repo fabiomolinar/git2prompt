@@ -5,6 +5,9 @@ use tokio::io::AsyncWriteExt;
 use git2::Repository;
 use walkdir::WalkDir;
 
+mod file_utils;
+use file_utils::get_language_alias;
+
 /// Processes a list of GitHub URLs concurrently, downloads and processes content,
 /// and prepares it for AI tools.
 /// Returns the paths to the generated output files, or an error.
@@ -148,12 +151,13 @@ async fn process_repository_files(repo_path: &Path, no_headers: bool, ignore_pat
             if let Ok(content) = fs::read_to_string(path).await {
                 let relative_path = path.strip_prefix(repo_path)
                     .map_err(|e| format!("Failed to strip prefix: {}", e))?;
-
+                let alias = get_language_alias(path);
                 if !no_headers {
-                    combined_content.push_str(&format!("\n\n--- File: {} ---\n\n", relative_path.display()));
+                    combined_content.push_str(&format!("--- File: {} ---\n", relative_path.display()));
                 }
+                combined_content.push_str(&format!("```{}\n", alias));
                 combined_content.push_str(&content);
-                combined_content.push('\n'); // Add a newline after each file's content
+                combined_content.push_str("\n```\n\n"); // Add a newline after each file's content
             } else {
                 eprintln!("Warning: Could not read file {:?}", path);
             }
