@@ -258,9 +258,9 @@ mod tests {
         assert!(content_with_headers_merged.contains("# Test Repo"));
 
         let content_no_headers_merged = process_repository_files(&test_repo_path, true, true, Vec::new()).await.unwrap();
-        assert!(!content_no_headers_merged.contains(&format!("## File: {}", src_main_path.display())));
+        assert!(!content_no_headers_merged.contains(&format!("### File: {}", src_main_path.display())));
         assert!(content_no_headers_merged.contains("fn main() { println!(\"Hello\"); }"));
-        assert!(!content_no_headers_merged.contains(&format!("## File: {}", readme_path.display())));
+        assert!(!content_no_headers_merged.contains(&format!("### File: {}", readme_path.display())));
         assert!(content_no_headers_merged.contains("# Test Repo"));
 
         Ok(())
