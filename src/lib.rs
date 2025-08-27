@@ -135,12 +135,17 @@ async fn process_repository_files(repo_path: &Path, no_headers: bool, merge_file
             continue;
         }
 
-        // Check if the file or its parent directory matches any ignore patterns
+        // Check if the file or its parent directory matches any ignore patterns.
+        // Normalize both the path and the pattern to use forward slashes for cross-platform compatibility.
         let relative_path_str = path.strip_prefix(repo_path)
             .map_err(|e| format!("Failed to strip prefix: {}", e))?
-            .to_string_lossy();
-        
-        if ignore_patterns.iter().any(|pattern| relative_path_str.contains(pattern)) {
+            .to_string_lossy()
+            .replace("\\", "/"); // Normalize backslashes to forward slashes
+
+        if ignore_patterns.iter().any(|pattern| {
+            let normalized_pattern = pattern.replace("\\", "/");
+            relative_path_str.contains(&normalized_pattern)
+        }) {
             println!("Ignoring file/folder: {}", relative_path_str);
             continue;
         }
@@ -278,6 +283,31 @@ mod tests {
 
         let read_content = fs::read_to_string(&test_file)?;
         assert_eq!(read_content, test_content);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_ignore_patterns_cross_platform() -> Result<()> {
+        let test_repo_path = PathBuf::from("test_ignore_repo");
+        let _cleanup = TestCleanup::new(&test_repo_path);
+        fs::create_dir_all(test_repo_path.join("data"))?;
+        fs::create_dir_all(test_repo_path.join("src"))?;
+        fs::write(test_repo_path.join("data/secret.txt"), "This is a secret.")?;
+        fs::write(test_repo_path.join("README.md"), "# README")?;
+        fs::write(test_repo_path.join("src/main.rs"), "fn main() {}")?;
+
+        let ignore_patterns = vec!["data/".to_string(), "README.md".to_string(), "src\\main.rs".to_string()];
+
+        let content = process_repository_files(&test_repo_path, true, true, ignore_patterns).await.unwrap();
+
+        // Check that ignored files are not in the output
+        assert!(!content.contains("secret.txt"));
+        assert!(!content.contains("README.md"));
+        assert!(!content.contains("main.rs"));
+
+        // Check that other files are processed (in this case, there are none, but this confirms the logic)
+        assert!(content.is_empty());
 
         Ok(())
     }

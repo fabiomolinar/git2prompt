@@ -1,6 +1,6 @@
 # **git2prompt**
 
-**git2prompt** is a command-line utility written in Rust that streamlines the process of preparing GitHub repository content for large language models (LLMs). It clones repositories, filters out unnecessary files, and concatenates the source code into a single, clean text file, ready to be used as context for AI tools.
+**git2prompt** is a command-line utility written in Rust that streamlines the process of preparing GitHub repository content for large language models (LLMs). It clones repositories, filters out unnecessary files, and concatenates the source code into a single, clean markdown file, ready to be used as context for AI tools.
 
 ## **Features**
 
@@ -52,10 +52,12 @@ To ignore additional files or directories, create a file named *.git2promptignor
 For example, a `.git2promptignore` file might look like this:
 
 ```
-/assets  
-/docs  
+assets/
+docs/  
 README.md
 ```
+
+The paths are relative to the repository. In the example above, the `assets` and `docs` folders within the repository root folder and the `README.md` file would be excluded.
 
 Alternatively, you can specify a custom ignore file using the `--ignore-file` flag:
 
@@ -74,3 +76,4 @@ As I am starting my journey with Rust, here it goes a few reminders so I don't h
 - To run Rust built-in linters, run `cargo clippy` (run with `--fix` to automatically fix the issues).
 - To run the tests with a specific test file, run `cargo test <test-file>`.
 - To run the tests with a specific test function, run `cargo test <test-function>`.
+

@@ -1,0 +1,35 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "cppvsdbg",
+            "request": "launch",
+            "name": "Debug git2prompt",
+            // The path to the executable to debug.
+            // This is relative to the workspace root.
+            "program": "${workspaceFolder}/target/debug/git2prompt",
+            "args": [
+                // Add your command-line arguments here for debugging.
+                // For example, to debug a repository:
+                // "rust-lang/rust-by-example"
+                //
+                // You can also use a variable to prompt for input when you start the debug session:
+                "${input:repositoryUrl}"
+            ],
+            // A pre-launch task to ensure the binary is built.
+            "preLaunchTask": "rust: cargo build",
+            "cwd": "${workspaceFolder}"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "repositoryUrl",
+            "type": "promptString",
+            "description": "Enter the GitHub repository URL (e.g., 'owner/repo'):",
+            "default": "fabiomolinar/git2prompt"
+        }
+    ]
+}
