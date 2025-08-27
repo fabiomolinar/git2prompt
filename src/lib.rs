@@ -1,12 +1,12 @@
+mod file_utils;
+
+use file_utils::get_language_alias;
 use futures::future::join_all;
 use std::path::{Path, PathBuf};
 use tokio::fs::{self, File};
 use tokio::io::AsyncWriteExt;
 use git2::Repository;
 use walkdir::WalkDir;
-
-mod file_utils;
-use file_utils::get_language_alias;
 
 /// Processes a list of GitHub URLs concurrently, downloads and processes content,
 /// and prepares it for AI tools.

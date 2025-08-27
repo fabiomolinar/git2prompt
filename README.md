@@ -1,20 +1,65 @@
-# git2prompt
+# **git2prompt**
 
-git2prompt is a command-line tool that takes a GitHub repository URL, downloads its contents, and generates a single text file optimized for use as input to AI tools.
+**git2prompt** is a command-line utility written in Rust that streamlines the process of preparing GitHub repository content for large language models (LLMs). It clones repositories, filters out unnecessary files, and concatenates the source code into a single, clean text file, ready to be used as context for AI tools.
 
-## How to use it
+## **Features**
 
-Refer to `git2prompt --help` or `cargo run -- --help` for more information.
+- **Seamless Integration:** Simply provide one or more GitHub repository URLs to get started.  
+- **Content Concatenation:** Merges all processed files into a single output file, or creates a separate file for each repository.  
+- **Intelligent Filtering:** Automatically ignores common non-text files and the *.git* directory to ensure only relevant source code is included.  
+- **Customizable Filtering:** Use a *.git2promptignore* file to specify additional files or directories to exclude from the output.  
+- **Readability:** Automatically adds markdown headers and language-specific code fences to the output for enhanced readability by both humans and AI models.
 
-## Filtering
+## **How to Use It**
 
-To remove certain files or folders from the output, you can add them to the `.git2promptignore` file at the binary root. Alternatively, you can also pass a file path to the `--ignore-file` flag.
+To get started, clone the repository and build the project with Cargo.
 
+`cargo build --release`
 
-Certain files and folders are automatically ignored by git2prompt:
+After building, you can use the compiled binary directly.
 
-- `.git` internal files.
-- Non-text files extensions: "png" | "jpg" | "jpeg" | "gif" | "zip" | "tar" | "gz" | "bin" | "o" | "so" | "dll"
+### **Basic Usage**
+
+To process a single repository and output a single file:
+
+`git2prompt <owner/repo>`
+
+For example:
+
+`git2prompt rust-lang/rust-by-example`
+
+### **Advanced Usage**
+
+Process multiple repositories and merge their contents into a single file:
+
+`git2prompt --merge-files rust-lang/rust rust-lang/book`
+
+Use the `--no-headers` flag to remove the file path headers above each code block:
+
+`git2prompt --no-headers rust-lang/rust-by-example`
+
+## **Filtering**
+
+**git2prompt** automatically ignores certain common file types and directories to keep the output clean.
+
+These are automatically ignored:
+
+- The .git directory and its contents.  
+- Binary file extensions: png, jpg, jpeg, gif, zip, tar, gz, bin, o, so, dll
+
+To ignore additional files or directories, create a file named *.git2promptignore* in the same directory as the binary. The format is a simple list, with one file or folder per line.
+
+For example, a `.git2promptignore` file might look like this:
+
+```
+/assets  
+/docs  
+README.md
+```
+
+Alternatively, you can specify a custom ignore file using the `--ignore-file` flag:
+
+`git2prompt --ignore-file my-custom-ignore.txt <owner/repo>`
 
 ## Rust reminders
 
