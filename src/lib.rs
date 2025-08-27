@@ -19,15 +19,15 @@ struct Repository {
 }
 
 impl Repository {
-    fn new(base_download_dir: &Path, url: &str) -> Self {
-        let repo_url = format!("https://github.com/{}.git", url);
-        let repo_name = url.replace("/", "-");
-        let path = base_download_dir.join(&repo_name);
+    fn new(base_download_dir: &Path, repo_url: &str) -> Self {
+        let url = format!("https://github.com/{}.git", repo_url);
+        let name = repo_url.replace("/", "-");
+        let path = base_download_dir.join(&name);
 
         Self {
-            url: repo_url,
-            name: repo_name,
-            path: path,
+            url,
+            name,
+            path,
             content: None,
         }
     }
@@ -69,7 +69,17 @@ pub async fn process_github_urls(
     // Await all processing tasks concurrently
     let results = join_all(processing_tasks).await;
 
-    let output_paths = handle_results(results, merge_files, &output_dir).await?;
+    // Collect results, handling any errors
+    let mut repositories = Vec::new();
+    for result in results {
+        match result {
+            Ok(Ok(repo)) => repositories.push(repo),
+            Ok(Err(e)) => return Err(format!("Failed to process a repository: {}", e)),
+            Err(e) => return Err(format!("Task failed unexpectedly: {}", e)), // Handle tokio::task::JoinError
+        }
+    }    
+
+    let output_paths = handle_results(repositories, merge_files, &output_dir).await?;
 
     // Clean up the temporary download directory
     fs::remove_dir_all(&download_dir)
@@ -79,62 +89,7 @@ pub async fn process_github_urls(
     Ok(output_paths)
 }
 
-async fn handle_results(
-    results: Vec<Result<Result<Repository, String>, tokio::task::JoinError>>, merge_files: bool, output_dir: &Path
-) -> Result<Vec<PathBuf>, String> {
-    let mut output_paths = Vec::new();
-    let mut all_processed_content = String::new();
-
-    for result in results {
-        match result {
-            Ok(Ok(repository)) => {
-                let content = &repository.content.unwrap_or(String::new());
-                if merge_files {
-                    all_processed_content.push_str(&format!("## Repository: {}\n", repository.name));
-                    all_processed_content.push_str(content);
-                } else {
-                    let output_file_name = format!("{}_processed.md", repository.name);
-                    let output_path = output_dir.join(output_file_name);
-                    let mut final_content = String::from(format!("# Repository: {}\n", repository.name));
-                    final_content.push_str(content);
-                    write_content_to_file(&output_path, &final_content).await?;
-                    output_paths.push(output_path);
-                }
-            },
-            Ok(Err(e)) => return Err(format!("Failed to process a repository: {}", e)),
-            Err(e) => return Err(format!("Task failed unexpectedly: {}", e)), // Handle tokio::task::JoinError
-        }
-    }
-
-    if merge_files && !all_processed_content.is_empty() {
-        let output_path = output_dir.join("all_repos_processed.md");
-        let final_content = String::from("# Merged Repository Contents\n") + &all_processed_content;
-        write_content_to_file(&output_path, &final_content).await?;
-        output_paths.push(output_path);
-    }
-    Ok(output_paths)
-}
-
-async fn process_single_repository(
-    mut repository: Repository,
-    no_headers: bool,
-    merge_files: bool,
-    ignore_patterns: Arc<Vec<String>>) -> Result<Repository, String> {
-    println!("Preparing to clone {} to {:?}", repository.url, repository.path);
-    
-    // Clone the repository
-    clone_repository(&repository).await?;
-    println!("Successfully cloned {} to {:?}", repository.name, repository.path);
-    
-    // Process the files in the cloned repository
-    let content = process_repository_files(&repository.path, no_headers, merge_files, &ignore_patterns).await?;
-
-    repository.content = Some(content);
-    
-    // Return the processed content and its associated info
-    Ok::<Repository, String>(repository)
-}
-
+// Ensure the necessary directories exist
 async fn ensure_directories(download_dir: &Path, output_dir: &Path) -> Result<(), String> {
     // Create the temporary download directory if it doesn't exist
     fs::create_dir_all(&download_dir)
@@ -164,10 +119,69 @@ async fn read_ignore_patterns(ignore_file: Option<PathBuf>) -> Result<Vec<String
     Ok(ignore_patterns)
 }
 
+async fn handle_results(
+    repositories: Vec<Repository>, merge_files: bool, output_dir: &Path
+) -> Result<Vec<PathBuf>, String> {
+    let mut output_paths = Vec::new();
+    let mut all_processed_content = String::new();
+
+    for repository in repositories {
+        let content = &repository.content.unwrap_or(String::new());
+        if merge_files {
+            all_processed_content.push_str(&format!("## Repository: {}\n", repository.name));
+            all_processed_content.push_str(content);
+        } else {
+            let output_file_name = format!("{}_processed.md", repository.name);
+            let output_path = output_dir.join(output_file_name);
+            let mut final_content = format!("# Repository: {}\n", repository.name);
+            final_content.push_str(content);
+            write_content_to_file(&output_path, &final_content).await?;
+            output_paths.push(output_path);
+        }
+    }
+
+    if merge_files && !all_processed_content.is_empty() {
+        let output_path = output_dir.join("all_repos_processed.md");
+        let final_content = String::from("# Merged Repository Contents\n") + &all_processed_content;
+        write_content_to_file(&output_path, &final_content).await?;
+        output_paths.push(output_path);
+    }
+    Ok(output_paths)
+}
+
+// Processes a single repository: clones it and processes its files.
+async fn process_single_repository(
+    mut repository: Repository,
+    no_headers: bool,
+    merge_files: bool,
+    ignore_patterns: Arc<Vec<String>>) -> Result<Repository, String> {
+    println!("Preparing to clone {} to {:?}", repository.url, repository.path);
+    
+    // Clone the repository
+    clone_repository(&repository).await?;
+    println!("Successfully cloned {} to {:?}", repository.name, repository.path);
+    
+    // Process the files in the cloned repository
+    let content = process_repository_files(&repository.path, no_headers, merge_files, &ignore_patterns).await?;
+
+    repository.content = Some(content);
+    
+    // Return the processed content and its associated info
+    Ok::<Repository, String>(repository)
+}
+
 // Clones a Git repository asynchronously
 async fn clone_repository(repository: &Repository) -> Result<Git2Repository, String> {
     let repo_url_owned = repository.url.to_string();
     let path_owned = repository.path.to_path_buf();
+
+    // If the folder exists, remove it to ensure a clean clone
+    if repository.path.exists() {
+        fs::remove_dir_all(&repository.path)
+            .await
+            .map_err(|e| format!("Failed to remove existing directory {:?}: {}", repository.path, e))?;
+    }
+
     tokio::task::spawn_blocking(move || {
         Git2Repository::clone(&repo_url_owned, &path_owned)
             .map_err(|e| format!("Git clone error: {}", e))
@@ -183,32 +197,7 @@ async fn process_repository_files(repo_path: &Path, no_headers: bool, merge_file
     for entry in WalkDir::new(repo_path).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
         
-        // Ignore .git directory and its contents by checking path components
-        if path.components().any(|c| c.as_os_str() == ".git") {
-            continue;
-        }
-
-        // Check if the file or its parent directory matches any ignore patterns.
-        // Normalize both the path and the pattern to use forward slashes for cross-platform compatibility.
-        let relative_path_str = path.strip_prefix(repo_path)
-            .map_err(|e| format!("Failed to strip prefix: {}", e))?
-            .to_string_lossy()
-            .replace("\\", "/"); // Normalize backslashes to forward slashes
-
-        if ignore_patterns.iter().any(|pattern| {
-            let normalized_pattern = pattern.replace("\\", "/");
-            relative_path_str.contains(&normalized_pattern)
-        }) {
-            println!("Ignoring file/folder: {}", relative_path_str);
-            continue;
-        }
-
-        if path.is_file() {
-            // Basic filtering: ignore common non-source files
-            if let Some(ext) = path.extension().and_then(|s| s.to_str())
-                && matches!(ext, "png" | "jpg" | "jpeg" | "gif" | "zip" | "tar" | "gz" | "bin" | "o" | "so" | "dll") {
-                    continue; // Skip binary or archive files
-            }
+        if is_valid_file(path, repo_path, ignore_patterns) {
             let with_headers = !no_headers;        
 
             if let Ok(content) = fs::read_to_string(path).await {
@@ -231,6 +220,45 @@ async fn process_repository_files(repo_path: &Path, no_headers: bool, merge_file
         }
     }
     Ok(combined_content)
+}
+
+fn is_valid_file(path: &Path, repo_path: &Path, ignore_patterns: &Vec<String>) -> bool {
+    // Ignore .git directory and its contents by checking path components
+    if path.components().any(|c| c.as_os_str() == ".git") {
+        return false;
+    }
+    if ignore_due_to_pattern(path, repo_path, ignore_patterns){
+        return false;
+    }
+    if !path.is_file() {
+        return false;
+    }    
+    if let Some(ext) = path.extension().and_then(|s| s.to_str())
+        && matches!(ext, "png" | "jpg" | "jpeg" | "gif" | "zip" | "tar" | "gz" | "bin" | "o" | "so" | "dll") {
+            return false; // Skip binary or archive files
+    }
+    true
+}
+
+fn ignore_due_to_pattern(path: &Path, repo_path: &Path, ignore_patterns: &Vec<String>) -> bool {
+    // Check if the file or its parent directory matches any ignore patterns.
+    // Normalize both the path and the pattern to use forward slashes for cross-platform compatibility.
+    let relative_path_str = match path.strip_prefix(repo_path) {
+        Ok(p) => p.to_string_lossy().replace("\\", "/"), // Normalize backslashes
+        Err(e) => {
+            eprintln!("Warning: Failed to strip prefix for {:?}: {}", path, e);
+            return false; // Treat as not ignored
+        }
+    };
+
+    if ignore_patterns.iter().any(|pattern| {
+        let normalized_pattern = pattern.replace("\\", "/");
+        relative_path_str.contains(&normalized_pattern)
+    }) {
+        println!("Ignoring file/folder: {}", relative_path_str);
+        return true;
+    }
+    false
 }
 
 // Writes content to a specified file.
