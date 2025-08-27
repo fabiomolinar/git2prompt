@@ -48,6 +48,19 @@ pub async fn process_github_urls(
     // Await all processing tasks concurrently
     let results = join_all(processing_tasks).await;
 
+    let output_paths = handle_results(results, merge_files, &output_dir).await?;
+
+    // Clean up the temporary download directory
+    fs::remove_dir_all(&download_dir)
+        .await
+        .map_err(|e| format!("Failed to remove temporary download directory: {}", e))?;
+
+    Ok(output_paths)
+}
+
+async fn handle_results(
+    results: Vec<Result<Result<(String, String), String>, tokio::task::JoinError>>, merge_files: bool, output_dir: &Path
+) -> Result<Vec<PathBuf>, String> {
     let mut output_paths = Vec::new();
     let mut all_processed_content = String::new();
 
@@ -77,16 +90,8 @@ pub async fn process_github_urls(
         write_content_to_file(&output_path, &final_content).await?;
         output_paths.push(output_path);
     }
-
-    // Clean up the temporary download directory
-    fs::remove_dir_all(&download_dir)
-        .await
-        .map_err(|e| format!("Failed to remove temporary download directory: {}", e))?;
-
     Ok(output_paths)
 }
-
-
 
 async fn process_single_repository(
     repo_url: String,
