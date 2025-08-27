@@ -12,11 +12,11 @@
             // This is relative to the workspace root.
             "program": "${workspaceFolder}/target/debug/git2prompt",
             "args": [
-                // Add your command-line arguments here for debugging.
+                // Command-line arguments for debugging.
                 // For example, to debug a repository:
                 // "rust-lang/rust-by-example"
                 //
-                // You can also use a variable to prompt for input when you start the debug session:
+                // For now, using a variable to prompt for input when starting the debug session:
                 "${input:repositoryUrl}"
             ],
             // A pre-launch task to ensure the binary is built.
