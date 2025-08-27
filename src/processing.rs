@@ -28,7 +28,7 @@ pub async fn process_repository_files(
     repo_path: &std::path::Path,
     no_headers: bool,
     merge_files: bool,
-    ignore_patterns: &Vec<String>,
+    ignore_patterns: &[String],
 ) -> Result<String, String> {
     let mut combined_content = String::new();
 
@@ -97,7 +97,7 @@ pub async fn handle_results(
 }
 
 /// Check if a file should be processed
-fn is_valid_file(path: &std::path::Path, repo_path: &std::path::Path, ignore_patterns: &Vec<String>) -> bool {
+fn is_valid_file(path: &std::path::Path, repo_path: &std::path::Path, ignore_patterns: &[String]) -> bool {
     if path.components().any(|c| c.as_os_str() == ".git") { return false; }
     if ignore_due_to_pattern(path, repo_path, ignore_patterns) { return false; }
     if !path.is_file() { return false; }
@@ -110,7 +110,7 @@ fn is_valid_file(path: &std::path::Path, repo_path: &std::path::Path, ignore_pat
     true
 }
 
-fn ignore_due_to_pattern(path: &std::path::Path, repo_path: &std::path::Path, ignore_patterns: &Vec<String>) -> bool {
+fn ignore_due_to_pattern(path: &std::path::Path, repo_path: &std::path::Path, ignore_patterns: &[String]) -> bool {
     let relative_path_str = match path.strip_prefix(repo_path) {
         Ok(p) => p.to_string_lossy().replace("\\", "/"),
         Err(_) => return false,
