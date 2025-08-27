@@ -18,6 +18,8 @@ To get started, clone the repository and build the project with Cargo.
 
 After building, you can use the compiled binary directly.
 
+The output files are stored within an `output` folder which is created where the binary is ran from.
+
 ### **Basic Usage**
 
 To process a single repository and output a single file:
@@ -76,4 +78,3 @@ As I am starting my journey with Rust, here it goes a few reminders so I don't h
 - To run Rust built-in linters, run `cargo clippy` (run with `--fix` to automatically fix the issues).
 - To run the tests with a specific test file, run `cargo test <test-file>`.
 - To run the tests with a specific test function, run `cargo test <test-function>`.
-
