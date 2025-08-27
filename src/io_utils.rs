@@ -1,4 +1,43 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use tokio::fs;
+use tokio::io::AsyncWriteExt;
+
+/// Ensure necessary directories exist
+pub async fn ensure_directories(download_dir: &Path, output_dir: &Path) -> Result<(), String> {
+    fs::create_dir_all(download_dir)
+        .await
+        .map_err(|e| format!("Failed to create download directory: {}", e))?;
+    fs::create_dir_all(output_dir)
+        .await
+        .map_err(|e| format!("Failed to create output directory: {}", e))?;
+    Ok(())
+}
+
+/// Read ignore patterns from a file
+pub async fn read_ignore_patterns(ignore_file: Option<PathBuf>) -> Result<Vec<String>, String> {
+    if let Some(path) = ignore_file {
+        if path.exists() {
+            let content = fs::read_to_string(&path)
+                .await
+                .map_err(|e| format!("Failed to read ignore file {:?}: {}", path, e))?;
+            return Ok(content.lines().map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect());
+        } else {
+            eprintln!("Warning: Ignore file {:?} not found. Proceeding without ignore patterns.", path);
+        }
+    }
+    Ok(Vec::new())
+}
+
+/// Write content to a file
+pub async fn write_content_to_file(path: &Path, content: &str) -> Result<(), String> {
+    let mut file = fs::File::create(path)
+        .await
+        .map_err(|e| format!("Failed to create output file {:?}: {}", path, e))?;
+    file.write_all(content.as_bytes())
+        .await
+        .map_err(|e| format!("Failed to write to output file {:?}: {}", path, e))?;
+    Ok(())
+}
 
 /// A helper function to map file extensions to a programming language alias.
 /// The aliases are from the list of languages supported by Highlight.js.
