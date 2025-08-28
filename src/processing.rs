@@ -126,7 +126,7 @@ fn is_valid_file(
     if let Some(ext) = path.extension().and_then(|s| s.to_str())
         && matches!(
             ext,
-            "png" | "jpg" | "jpeg" | "gif" | "zip" | "tar" | "gz" | "bin" | "o" | "so" | "dll"
+            "png" | "jpg" | "jpeg" | "gif" | "zip" | "tar" | "gz" | "bin" | "o" | "so" | "dll" | "der"
         )
     {
         return false;

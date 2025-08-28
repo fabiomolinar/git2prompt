@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::{fmt, path::{Path, PathBuf}};
 
 #[derive(Clone, Debug)]
 pub struct Repository {
