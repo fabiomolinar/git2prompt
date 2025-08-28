@@ -21,4 +21,16 @@ impl Repository {
             content: None,
         }
     }
+    pub fn has_content(&self) -> bool {
+        self.content.is_some()
+    }
+}
+
+impl fmt::Display for Repository {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f, "Repository(name: {}, url: {}, path: {:?}, has_content: {})", 
+            self.name, self.url, self.path, self.has_content()
+        )
+    }
 }
