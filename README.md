@@ -44,6 +44,10 @@ Sometimes you only need a single folder from a repository (instead of downloadin
 
 `git2prompt rust-lang/rust-by-example -f src`
 
+You can also restrict processing to only the files impacted by a GitHub pull request.  
+
+`git2prompt --pr 123 rust-lang/rust-by-example`
+
 ## **Filtering**
 
 **git2prompt** automatically ignores certain common file types and directories to keep the output clean.
@@ -90,4 +94,8 @@ Before pushing to *crates.io*, run the following:
 3. `cargo test`
 4. `cargo clippy`
 
-If all good, `cargo package` and then `cargo publish`.
+If all good:
+
+1. Update version on `Cargo.toml`.
+2. Commit and push.
+3. Run `cargo package` and then `cargo publish`.
