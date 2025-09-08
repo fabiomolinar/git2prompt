@@ -29,11 +29,11 @@ struct Args {
     ignore_file: PathBuf,
 
     /// Download and process only a specific folder within the repository
-    #[clap(short, long, value_name = "FOLDER PATH")]
+    #[clap(short, long, value_name = "FOLDER PATH", conflicts_with = "pr")]
     folder: Option<String>,
 
     /// Process only the files changed in a specific pull request
-    #[clap(long, value_name = "PULL REQUEST NUMBER")]
+    #[clap(long, value_name = "PULL REQUEST NUMBER", conflicts_with = "folder")]
     pr: Option<u32>,
 }
 
