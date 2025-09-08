@@ -1,6 +1,6 @@
 [package]
 name = "git2prompt"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Fabio Thomaz Molinar <fabiomolinar@gmail.com>"]
 description = "git2prompt is a command-line tool that takes a GitHub repository URL, downloads its contents, and generates a single text file optimized for use as input to AI tools."
 readme = "README.md"
