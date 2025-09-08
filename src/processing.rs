@@ -45,7 +45,7 @@ pub async fn process_single_repository(
         repository.content = Some(content);
         return Ok(repository);
     }
-    
+
     // Case 2: Normal mode → clone repo
     println!(
         "Preparing to clone {} to {:?}",
@@ -57,9 +57,14 @@ pub async fn process_single_repository(
         repository.name, repository.path
     );
 
-    let content =
-        process_repository_files(&repository.path, no_headers, merge_files, &ignore_patterns, folder.as_deref())
-            .await?;
+    let content = process_repository_files(
+        &repository.path,
+        no_headers,
+        merge_files,
+        &ignore_patterns,
+        folder.as_deref(),
+    )
+    .await?;
     repository.content = Some(content);
 
     Ok(repository)
@@ -82,7 +87,10 @@ pub async fn process_repository_files(
     };
 
     if !base_path.exists() {
-        return Err(format!("Specified folder {:?} not found in repo", base_path));
+        return Err(format!(
+            "Specified folder {:?} not found in repo",
+            base_path
+        ));
     }
 
     for entry in WalkDir::new(&base_path).into_iter().filter_map(|e| e.ok()) {
@@ -171,7 +179,18 @@ fn is_valid_file(
     if let Some(ext) = path.extension().and_then(|s| s.to_str())
         && matches!(
             ext,
-            "png" | "jpg" | "jpeg" | "gif" | "zip" | "tar" | "gz" | "bin" | "o" | "so" | "dll" | "der"
+            "png"
+                | "jpg"
+                | "jpeg"
+                | "gif"
+                | "zip"
+                | "tar"
+                | "gz"
+                | "bin"
+                | "o"
+                | "so"
+                | "dll"
+                | "der"
         )
     {
         return false;

@@ -1,4 +1,7 @@
-use std::{fmt, path::{Path, PathBuf}};
+use std::{
+    fmt,
+    path::{Path, PathBuf},
+};
 
 #[derive(Clone, Debug)]
 pub struct Repository {
@@ -29,8 +32,12 @@ impl Repository {
 impl fmt::Display for Repository {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
-            f, "Repository(name: {}, url: {}, path: {:?}, has_content: {})", 
-            self.name, self.url, self.path, self.has_content()
+            f,
+            "Repository(name: {}, url: {}, path: {:?}, has_content: {})",
+            self.name,
+            self.url,
+            self.path,
+            self.has_content()
         )
     }
 }

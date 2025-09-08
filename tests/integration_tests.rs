@@ -53,17 +53,19 @@ async fn test_process_repository_files() -> Result<(), Box<dyn std::error::Error
     let src_main_path = PathBuf::from("src").join("main.rs");
     let readme_path = PathBuf::from("README.md");
 
-    let content_with_headers = process_repository_files(&test_repo_path, false, false, &Vec::new(), None)
-        .await
-        .unwrap();
+    let content_with_headers =
+        process_repository_files(&test_repo_path, false, false, &Vec::new(), None)
+            .await
+            .unwrap();
     assert!(content_with_headers.contains(&format!("## File: {}", src_main_path.display())));
     assert!(content_with_headers.contains("fn main() { println!(\"Hello\"); }"));
     assert!(content_with_headers.contains(&format!("## File: {}", readme_path.display())));
     assert!(content_with_headers.contains("# Test Repo"));
 
-    let content_no_headers = process_repository_files(&test_repo_path, true, false, &Vec::new(), None)
-        .await
-        .unwrap();
+    let content_no_headers =
+        process_repository_files(&test_repo_path, true, false, &Vec::new(), None)
+            .await
+            .unwrap();
     assert!(!content_no_headers.contains(&format!("## File: {}", src_main_path.display())));
     assert!(content_no_headers.contains("fn main() { println!(\"Hello\"); }"));
     assert!(!content_no_headers.contains(&format!("## File: {}", readme_path.display())));
@@ -126,7 +128,8 @@ async fn test_ignore_patterns_cross_platform() -> Result<(), Box<dyn std::error:
     ];
 
     let content =
-        processing::process_repository_files(&test_repo_path, true, true, &ignore_patterns, None).await?;
+        processing::process_repository_files(&test_repo_path, true, true, &ignore_patterns, None)
+            .await?;
 
     // Ignored files should not be in the output
     assert!(!content.contains("secret.txt"));
