@@ -40,6 +40,10 @@ Use the `--no-headers` flag to remove the file path headers above each code bloc
 
 `git2prompt --no-headers rust-lang/rust-by-example`
 
+Sometimes you only need a single folder from a repository (instead of downloading the entire repo and ignoring most files). Use the `--folder` flag to restrict processing to a single directory:
+
+`git2prompt rust-lang/rust-by-example -f src`
+
 ## **Filtering**
 
 **git2prompt** automatically ignores certain common file types and directories to keep the output clean.

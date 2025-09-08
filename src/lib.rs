@@ -18,6 +18,7 @@ pub async fn process_github_urls(
     no_headers: bool,
     merge_files: bool,
     ignore_file: Option<PathBuf>,
+    folder: Option<String>,
 ) -> Result<Vec<PathBuf>, String> {
     println!(
         "Library received URLs: {:?}, no_headers: {}, merge_files: {}",
@@ -38,8 +39,9 @@ pub async fn process_github_urls(
         .map(|url| {
             let repository = Repository::new(&download_dir, url);
             let ignore_patterns = Arc::clone(&ignore_patterns);
+            let folder = folder.clone();
             tokio::spawn(async move {
-                process_single_repository(repository, no_headers, merge_files, ignore_patterns)
+                process_single_repository(repository, no_headers, merge_files, ignore_patterns, folder)
                     .await
             })
         })

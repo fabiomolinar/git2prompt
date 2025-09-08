@@ -12,6 +12,7 @@ pub async fn process_single_repository(
     no_headers: bool,
     merge_files: bool,
     ignore_patterns: Arc<Vec<String>>,
+    folder: Option<String>,
 ) -> Result<Repository, String> {
     println!(
         "Preparing to clone {} to {:?}",
@@ -24,7 +25,7 @@ pub async fn process_single_repository(
     );
 
     let content =
-        process_repository_files(&repository.path, no_headers, merge_files, &ignore_patterns)
+        process_repository_files(&repository.path, no_headers, merge_files, &ignore_patterns, folder.as_deref())
             .await?;
     repository.content = Some(content);
 
@@ -37,10 +38,21 @@ pub async fn process_repository_files(
     no_headers: bool,
     merge_files: bool,
     ignore_patterns: &[String],
+    folder: Option<&str>,
 ) -> Result<String, String> {
     let mut combined_content = String::new();
 
-    for entry in WalkDir::new(repo_path).into_iter().filter_map(|e| e.ok()) {
+    let base_path = if let Some(folder) = folder {
+        repo_path.join(folder)
+    } else {
+        repo_path.to_path_buf()
+    };
+
+    if !base_path.exists() {
+        return Err(format!("Specified folder {:?} not found in repo", base_path));
+    }
+
+    for entry in WalkDir::new(&base_path).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
 
         if is_valid_file(path, repo_path, ignore_patterns) {

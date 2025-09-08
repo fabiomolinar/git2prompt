@@ -27,6 +27,10 @@ struct Args {
         default_value = ".git2promptignore"
     )]
     ignore_file: PathBuf,
+
+    /// Download and process only a specific folder within the repository
+    #[clap(short, long, value_name = "FOLDER PATH")]
+    folder: Option<String>,
 }
 
 #[tokio::main]
@@ -37,6 +41,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Repositories to process: {:?}", args.urls);
     println!("No file headers: {}", args.no_headers);
     println!("Merge into a single output file: {}", args.merge_files);
+    println!("Ignore file path: {:?}", args.ignore_file);
+    println!("Folder to process: {:?}", args.folder);
+    println!("----------------------------------------");
 
     // Call the library function to process the URLs, wrapping the ignore file path in Some
     match process_github_urls(
@@ -44,6 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.no_headers,
         args.merge_files,
         Some(args.ignore_file),
+        args.folder,
     )
     .await
     {
