@@ -1,4 +1,4 @@
-use crate::git_utils::clone_repository;
+use crate::git_utils::{clone_repository, fetch_and_reconstruct_pr_files};
 use crate::io_utils::{get_language_alias, write_content_to_file};
 use crate::repository::Repository;
 use std::path::PathBuf;
@@ -13,7 +13,40 @@ pub async fn process_single_repository(
     merge_files: bool,
     ignore_patterns: Arc<Vec<String>>,
     folder: Option<String>,
+    pr: Option<u32>,
 ) -> Result<Repository, String> {
+    // Case 1: PR mode → don’t clone repo, reconstruct from API
+    if let Some(pr_number) = pr {
+        println!(
+            "Processing repository {} in PR mode (PR #{})",
+            repository.url, pr_number
+        );
+
+        // Extract "owner/repo" from "https://github.com/owner/repo.git"
+        let repo_name = repository
+            .url
+            .trim_end_matches(".git")
+            .trim_start_matches("https://github.com/")
+            .to_string();
+
+        let pr_temp_path = repository.path.join(format!("pr-{}", pr_number));
+
+        fetch_and_reconstruct_pr_files(&repo_name, pr_number, &pr_temp_path).await?;
+
+        let content = process_repository_files(
+            &pr_temp_path,
+            no_headers,
+            merge_files,
+            &ignore_patterns,
+            None, // folder restriction not applied in PR mode
+        )
+        .await?;
+
+        repository.content = Some(content);
+        return Ok(repository);
+    }
+    
+    // Case 2: Normal mode → clone repo
     println!(
         "Preparing to clone {} to {:?}",
         repository.url, repository.path

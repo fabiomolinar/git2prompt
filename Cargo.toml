@@ -26,6 +26,8 @@ git2 = "0.20.2"
 tokio = { version = "1.47.1", features = ["full"] }
 walkdir = "2.3"
 futures = "0.3"
+reqwest = { version = "0.12.23", features = ["json", "rustls-tls"] }
+serde = { version = "1.0.219", features = ["derive"] }
 
 [profile.dev]
 opt-level = 0

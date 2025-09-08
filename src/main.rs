@@ -31,6 +31,10 @@ struct Args {
     /// Download and process only a specific folder within the repository
     #[clap(short, long, value_name = "FOLDER PATH")]
     folder: Option<String>,
+
+    /// Process only the files changed in a specific pull request
+    #[clap(long, value_name = "PULL REQUEST NUMBER")]
+    pr: Option<u32>,
 }
 
 #[tokio::main]
@@ -43,6 +47,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Merge into a single output file: {}", args.merge_files);
     println!("Ignore file path: {:?}", args.ignore_file);
     println!("Folder to process: {:?}", args.folder);
+    println!("Pull request number: {:?}", args.pr);
     println!("----------------------------------------");
 
     // Call the library function to process the URLs, wrapping the ignore file path in Some
@@ -52,6 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         args.merge_files,
         Some(args.ignore_file),
         args.folder,
+        args.pr,
     )
     .await
     {
