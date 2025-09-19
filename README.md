@@ -95,7 +95,7 @@ As I am starting my journey with Rust, here it goes a few reminders so I don't h
 Before pushing to *crates.io*, run the following:
 
 1. `cargo fmt`
-2. `cargo build`
+2. `cargo build --release`
 3. `cargo test`
 4. `cargo clippy`
 
