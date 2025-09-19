@@ -210,5 +210,5 @@ fn ignore_due_to_pattern(
     };
     ignore_patterns
         .iter()
-        .any(|pattern| relative_path_str.contains(&pattern.replace("\\", "/")))
+        .any(|pattern| relative_path_str.starts_with(&pattern.replace("\\", "/")))
 }
