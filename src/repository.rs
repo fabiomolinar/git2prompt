@@ -12,6 +12,7 @@ pub struct Repository {
 }
 
 impl Repository {
+    /// Creates a new Repository instance from a remote GitHub URL.
     pub fn new(base_download_dir: &Path, repo_url: &str) -> Self {
         let url = format!("https://github.com/{}.git", repo_url);
         let name = repo_url.replace("/", "-");
@@ -24,6 +25,18 @@ impl Repository {
             content: None,
         }
     }
+
+    /// Creates a new Repository instance from a local file system path.
+    pub fn from_local_path(local_path: &Path) -> Self {
+
+        Self {
+            url: "local".to_string(), // URL is not applicable
+            name: "local-repo".to_string(), // A generic name for local repos
+            path: local_path.to_path_buf(), // The path is the provided local path
+            content: None,
+        }
+    }
+
     pub fn has_content(&self) -> bool {
         self.content.is_some()
     }

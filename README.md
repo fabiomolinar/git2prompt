@@ -30,6 +30,10 @@ For example:
 
 `git2prompt rust-lang/rust-by-example`
 
+Or in case you have the repository on your local machine, then just run it with the `--local` flag.  For example:
+
+`git2prompt --local .`
+
 ### **Advanced Usage**
 
 Process multiple repositories and merge their contents into a single file:

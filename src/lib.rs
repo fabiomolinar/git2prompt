@@ -5,7 +5,7 @@ pub mod repository;
 
 use futures::future::join_all;
 use io_utils::{ensure_directories, read_ignore_patterns};
-use processing::process_single_repository;
+use processing::{process_repository_files, process_single_repository}; // Import process_repository_files
 use repository::Repository;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -72,6 +72,47 @@ pub async fn process_github_urls(
     fs::remove_dir_all(&download_dir)
         .await
         .map_err(|e| format!("Failed to remove temporary download directory: {}", e))?;
+
+    Ok(output_paths)
+}
+
+/// Processes a single local directory path, prepares content, and writes to output.
+pub async fn process_local_path(
+    path: PathBuf,
+    no_headers: bool,
+    ignore_file: Option<PathBuf>,
+    folder: Option<String>,
+) -> Result<Vec<PathBuf>, String> {
+    if !path.is_dir() {
+        return Err(format!("Local path {:?} is not a directory.", path));
+    }
+
+    // Prepare output directory
+    let output_dir = PathBuf::from("./output");
+    ensure_directories(&PathBuf::new(), &output_dir).await?; // No download dir needed
+
+    // Read ignore patterns
+    let ignore_patterns = read_ignore_patterns(ignore_file).await?;
+
+    // Create a repository object from the local path
+    let mut repository = Repository::from_local_path(&path);
+    // Print full path for debugging
+    println!("Processing local repository at path: {:?}", repository.path);
+
+    // Process the files in the local directory
+    let content = process_repository_files(
+        &repository.path,
+        no_headers,
+        false, // merge_files is false since there is only one repo
+        &ignore_patterns,
+        folder.as_deref(),
+    )
+    .await?;
+    repository.content = Some(content);
+
+    // Use handle_results to generate the output file
+    let repositories = vec![repository];
+    let output_paths = processing::handle_results(repositories, false, &output_dir).await?;
 
     Ok(output_paths)
 }
