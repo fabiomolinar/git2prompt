@@ -57,15 +57,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ));
         }
         let local_path = PathBuf::from(&args.sources[0]);
-        let ignore_path = PathBuf::from(&args.ignore_file);
+        let ignore_canonical = match PathBuf::from(&args.ignore_file).canonicalize() {
+            Ok(p) => Some(p),
+            Err(_) => {
+                eprintln!(
+                    "Warning: Ignore file {:?} not found. Proceeding without it.",
+                    args.ignore_file
+                );
+                None
+            }
+        };
         println!("Processing local repository at: {:?}", local_path);
         println!("No file headers: {}", args.no_headers);
-        println!("Ignore file path: {:?}", ignore_path.canonicalize()?);
         println!("----------------------------------------");
         process_local_path(
             local_path,
             args.no_headers,
-            Some(args.ignore_file),
+            ignore_canonical,
             args.folder,
         )
         .await
