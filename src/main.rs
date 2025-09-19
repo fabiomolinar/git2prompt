@@ -70,13 +70,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Processing local repository at: {:?}", local_path);
         println!("No file headers: {}", args.no_headers);
         println!("----------------------------------------");
-        process_local_path(
-            local_path,
-            args.no_headers,
-            ignore_canonical,
-            args.folder,
-        )
-        .await
+        process_local_path(local_path, args.no_headers, ignore_canonical, args.folder).await
     } else {
         // --- GITHUB URL MODE (default) ---
         println!("Repositories to process: {:?}", args.sources);
