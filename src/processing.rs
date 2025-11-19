@@ -99,11 +99,28 @@ pub async fn process_repository_files(
         if is_valid_file(path, repo_path, ignore_patterns) {
             let with_headers = !no_headers;
 
-            if let Ok(content) = fs::read_to_string(path).await {
+            if let Ok(raw_content) = fs::read_to_string(path).await {
                 let relative_path = path
                     .strip_prefix(repo_path)
                     .map_err(|e| format!("Failed to strip prefix: {}", e))?;
                 let alias = get_language_alias(path);
+
+                // Adjust content if it is markdown to avoid header conflicts
+                let content = if alias == "markdown" {
+                    raw_content
+                        .lines()
+                        .map(|line| {
+                            if line.trim_start().starts_with('#') {
+                                format!("##{}", line)
+                            } else {
+                                line.to_string()
+                            }
+                        })
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                } else {
+                    raw_content
+                };
 
                 if with_headers {
                     if merge_files {

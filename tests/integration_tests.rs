@@ -1,4 +1,5 @@
-use git2prompt::{io_utils, processing};
+// tests/integration_tests.rs
+use git2prompt::{io_utils, processing, repository::Repository};
 use std::fs as stdfs;
 use std::path::PathBuf;
 use tokio::fs;
@@ -60,7 +61,9 @@ async fn test_process_repository_files() -> Result<(), Box<dyn std::error::Error
     assert!(content_with_headers.contains(&format!("## File: {}", src_main_path.display())));
     assert!(content_with_headers.contains("fn main() { println!(\"Hello\"); }"));
     assert!(content_with_headers.contains(&format!("## File: {}", readme_path.display())));
-    assert!(content_with_headers.contains("# Test Repo"));
+    // Assert that Markdown headers were demoted (prepended with ##)
+    // Original content was "# Test Repo", so we expect "### Test Repo"
+    assert!(content_with_headers.contains("### Test Repo"));
 
     let content_no_headers =
         process_repository_files(&test_repo_path, true, false, &Vec::new(), None)
@@ -69,7 +72,8 @@ async fn test_process_repository_files() -> Result<(), Box<dyn std::error::Error
     assert!(!content_no_headers.contains(&format!("## File: {}", src_main_path.display())));
     assert!(content_no_headers.contains("fn main() { println!(\"Hello\"); }"));
     assert!(!content_no_headers.contains(&format!("## File: {}", readme_path.display())));
-    assert!(content_no_headers.contains("# Test Repo"));
+    // Even without file headers, the markdown content inside should still be modified
+    assert!(content_no_headers.contains("### Test Repo"));
 
     let content_with_headers_merged =
         process_repository_files(&test_repo_path, false, true, &Vec::new(), None)
@@ -80,7 +84,7 @@ async fn test_process_repository_files() -> Result<(), Box<dyn std::error::Error
     );
     assert!(content_with_headers_merged.contains("fn main() { println!(\"Hello\"); }"));
     assert!(content_with_headers_merged.contains(&format!("### File: {}", readme_path.display())));
-    assert!(content_with_headers_merged.contains("# Test Repo"));
+    assert!(content_with_headers_merged.contains("### Test Repo"));
 
     let content_no_headers_merged =
         process_repository_files(&test_repo_path, true, true, &Vec::new(), None)
@@ -89,7 +93,7 @@ async fn test_process_repository_files() -> Result<(), Box<dyn std::error::Error
     assert!(!content_no_headers_merged.contains(&format!("### File: {}", src_main_path.display())));
     assert!(content_no_headers_merged.contains("fn main() { println!(\"Hello\"); }"));
     assert!(!content_no_headers_merged.contains(&format!("### File: {}", readme_path.display())));
-    assert!(content_no_headers_merged.contains("# Test Repo"));
+    assert!(content_no_headers_merged.contains("### Test Repo"));
 
     Ok(())
 }
@@ -138,6 +142,25 @@ async fn test_ignore_patterns_cross_platform() -> Result<(), Box<dyn std::error:
 
     // Remaining content is empty
     assert!(content.is_empty());
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_local_repo_name_resolution() -> Result<(), Box<dyn std::error::Error>> {
+    // We need a directory with a specific name to test if canonicalize works
+    let dir_name = "test_project_folder";
+    let test_path = PathBuf::from(dir_name);
+    let _cleanup = TestCleanup::new(&test_path);
+    
+    fs::create_dir_all(&test_path).await?;
+
+    // Create the repository object from the local path
+    let repo = Repository::from_local_path(&test_path);
+
+    // The name should match the directory name, not "local-repo" or "."
+    assert_eq!(repo.name, dir_name);
+    assert_eq!(repo.url, "local");
 
     Ok(())
 }
