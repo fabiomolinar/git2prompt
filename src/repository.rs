@@ -30,8 +30,10 @@ impl Repository {
     pub fn from_local_path(local_path: &Path) -> Self {
         // Canonicalize to resolve "." or relative paths to absolute paths
         // so we can extract the actual folder name.
-        let abs_path = local_path.canonicalize().unwrap_or_else(|_| local_path.to_path_buf());
-        
+        let abs_path = local_path
+            .canonicalize()
+            .unwrap_or_else(|_| local_path.to_path_buf());
+
         let name = abs_path
             .file_name() // Get the final component of the path (the folder name)
             .and_then(|s| s.to_str()) // Convert it to a string slice

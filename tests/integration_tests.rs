@@ -62,8 +62,12 @@ async fn test_process_repository_files() -> Result<(), Box<dyn std::error::Error
     assert!(content_with_headers.contains("fn main() { println!(\"Hello\"); }"));
     assert!(content_with_headers.contains(&format!("## File: {}", readme_path.display())));
     // Assert that Markdown headers were demoted (prepended with ##)
-    // Original content was "# Test Repo", so we expect "### Test Repo"
     assert!(content_with_headers.contains("### Test Repo"));
+    // Assert that the warning note was added
+    assert!(
+        content_with_headers
+            .contains("> **Note to AI agents:** Headers in this file have been modified")
+    );
 
     let content_no_headers =
         process_repository_files(&test_repo_path, true, false, &Vec::new(), None)
@@ -72,8 +76,12 @@ async fn test_process_repository_files() -> Result<(), Box<dyn std::error::Error
     assert!(!content_no_headers.contains(&format!("## File: {}", src_main_path.display())));
     assert!(content_no_headers.contains("fn main() { println!(\"Hello\"); }"));
     assert!(!content_no_headers.contains(&format!("## File: {}", readme_path.display())));
-    // Even without file headers, the markdown content inside should still be modified
+    // Check features in no-header mode as well
     assert!(content_no_headers.contains("### Test Repo"));
+    assert!(
+        content_no_headers
+            .contains("> **Note to AI agents:** Headers in this file have been modified")
+    );
 
     let content_with_headers_merged =
         process_repository_files(&test_repo_path, false, true, &Vec::new(), None)
@@ -85,6 +93,10 @@ async fn test_process_repository_files() -> Result<(), Box<dyn std::error::Error
     assert!(content_with_headers_merged.contains("fn main() { println!(\"Hello\"); }"));
     assert!(content_with_headers_merged.contains(&format!("### File: {}", readme_path.display())));
     assert!(content_with_headers_merged.contains("### Test Repo"));
+    assert!(
+        content_with_headers_merged
+            .contains("> **Note to AI agents:** Headers in this file have been modified")
+    );
 
     let content_no_headers_merged =
         process_repository_files(&test_repo_path, true, true, &Vec::new(), None)
@@ -94,6 +106,10 @@ async fn test_process_repository_files() -> Result<(), Box<dyn std::error::Error
     assert!(content_no_headers_merged.contains("fn main() { println!(\"Hello\"); }"));
     assert!(!content_no_headers_merged.contains(&format!("### File: {}", readme_path.display())));
     assert!(content_no_headers_merged.contains("### Test Repo"));
+    assert!(
+        content_no_headers_merged
+            .contains("> **Note to AI agents:** Headers in this file have been modified")
+    );
 
     Ok(())
 }
@@ -152,7 +168,7 @@ async fn test_local_repo_name_resolution() -> Result<(), Box<dyn std::error::Err
     let dir_name = "test_project_folder";
     let test_path = PathBuf::from(dir_name);
     let _cleanup = TestCleanup::new(&test_path);
-    
+
     fs::create_dir_all(&test_path).await?;
 
     // Create the repository object from the local path

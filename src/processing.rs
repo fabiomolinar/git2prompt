@@ -1,3 +1,4 @@
+// src/processing.rs
 use crate::git_utils::{clone_repository, fetch_and_reconstruct_pr_files};
 use crate::io_utils::{get_language_alias, write_content_to_file};
 use crate::repository::Repository;
@@ -132,6 +133,12 @@ pub async fn process_repository_files(
                     }
                 }
                 combined_content.push_str(&format!("```{}\n", alias));
+
+                // Add warning note for markdown files
+                if alias == "markdown" {
+                    combined_content.push_str("> **Note to AI agents:** Headers in this file have been modified (prepended with '##') to avoid conflict with the main document structure.\n\n");
+                }
+
                 combined_content.push_str(&content);
                 combined_content.push_str("\n```\n\n");
             } else {
