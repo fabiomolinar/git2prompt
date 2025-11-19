@@ -9,6 +9,8 @@
 - **Intelligent Filtering:** Automatically ignores common non-text files and the *.git* directory to ensure only relevant source code is included.  
 - **Customizable Filtering:** Use a *.git2promptignore* file to specify additional files or directories to exclude from the output.  
 - **Readability:** Automatically adds markdown headers and language-specific code fences to the output for enhanced readability by both humans and AI models.
+- **Smart Markdown Processing:** Automatically modifies headers in Markdown files (demoting them with `##`) to preserve the structural integrity of the final output. It also injects a warning note to inform the AI of these changes.
+- **Context-Aware Naming:** When processing local directories, the tool automatically uses the actual folder name as the repository title in the output.
 
 ## **How to Use It**
 
@@ -65,7 +67,7 @@ To ignore additional files or directories, create a file named *.git2promptignor
 
 For example, a `.git2promptignore` file might look like this:
 
-```
+```.git2promptignore
 assets/
 docs/  
 README.md
