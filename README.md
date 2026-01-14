@@ -106,3 +106,5 @@ If all good:
 1. Update version on `Cargo.toml`.
 2. Commit and push.
 3. Run `cargo package` and then `cargo publish`.
+
+To update the CLI program binary from source, run `cargo install --path .`.
