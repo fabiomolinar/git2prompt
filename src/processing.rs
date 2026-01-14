@@ -132,15 +132,18 @@ pub async fn process_repository_files(
                             .push_str(&format!("## File: {}\n", relative_path.display()));
                     }
                 }
-                combined_content.push_str(&format!("```{}\n", alias));
-
                 // Add warning note for markdown files
                 if alias == "markdown" {
+                    // Wrap in five backticks to avoid conflicts with existing triple backticks
+                    combined_content.push_str(&format!("`````{}\n", alias));
                     combined_content.push_str("> **Note to AI agents:** Headers in this file have been modified (prepended with '##') to avoid conflict with the main document structure.\n\n");
+                    combined_content.push_str(&content);
+                    combined_content.push_str("\n`````\n\n");
+                } else {
+                    combined_content.push_str(&format!("```{}\n", alias));
+                    combined_content.push_str(&content);
+                    combined_content.push_str("\n```\n\n");
                 }
-
-                combined_content.push_str(&content);
-                combined_content.push_str("\n```\n\n");
             } else {
                 eprintln!("Warning: Could not read file {:?}", path);
             }
