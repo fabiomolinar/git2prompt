@@ -1,10 +1,8 @@
-> **Note to AI agents:** Headers in this file have been modified (prepended with '##') to avoid conflict with the main document structure.
-
-### **git2prompt**
+# **git2prompt**
 
 **git2prompt** is a command-line utility written in Rust that streamlines the process of preparing GitHub repository content for large language models (LLMs). It clones repositories, filters out unnecessary files, and concatenates the source code into a single, clean markdown file, ready to be used as context for AI tools.
 
-#### **Features**
+## **Features**
 
 - **Seamless Integration:** Simply provide one or more GitHub repository URLs to get started.  
 - **Content Concatenation:** Merges all processed files into a single output file, or creates a separate file for each repository.  
@@ -17,7 +15,7 @@
 - **Smart Markdown Processing:** Automatically modifies headers in Markdown files (demoting them with `##`) to preserve the structural integrity of the final output. It also injects a warning note to inform the AI of these changes.
 - **Context-Aware Naming:** When processing local directories, the tool automatically uses the actual folder name as the repository title in the output.
 
-#### **How to Use It**
+## **How to Use It**
 
 To get started, clone the repository and build the project with Cargo.
 
@@ -27,7 +25,7 @@ After building, you can use the compiled binary directly.
 
 The output files are stored within an `output` folder which is created where the binary is ran from.
 
-##### **Basic Usage**
+### **Basic Usage**
 
 To process a single repository and output a single file:
 
@@ -41,7 +39,7 @@ Or in case you have the repository on your local machine, then just run it with 
 
 `git2prompt --local .`
 
-##### **Advanced Usage**
+### **Advanced Usage**
 
 Process multiple repositories and merge their contents into a single file:
 
@@ -73,7 +71,7 @@ You can also restrict processing to only the files impacted by a GitHub pull req
 
 `git2prompt --pr 123 rust-lang/rust-by-example`
 
-#### **Filtering**
+## **Filtering**
 
 **git2prompt** automatically ignores certain common file types and directories to keep the output clean.
 
@@ -97,7 +95,7 @@ Alternatively, you can specify a custom ignore file using the `--ignore-file` fl
 
 `git2prompt --ignore-file my-custom-ignore.txt <owner/repo>`
 
-#### **Configuration File**
+## **Configuration File**
 
 You can create a `.git2promptconfig` file in your working directory to save your preferences. This file uses TOML format.
 
@@ -115,7 +113,7 @@ no_headers = false
 ignore_file = ".git2promptignore"
 ```
 
-#### Rust reminders
+## Rust reminders
 
 As I am starting my journey with Rust, here it goes a few reminders so I don't have to Google them all the time:
 
