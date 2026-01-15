@@ -1,14 +1,15 @@
+// src/lib.rs
+pub mod config;
 pub mod git_utils;
 pub mod io_utils;
 pub mod processing;
 pub mod repository;
 
 use futures::future::join_all;
-use io_utils::{ensure_directories, read_ignore_patterns};
-use processing::{process_repository_files, process_single_repository}; // Import process_repository_files
+use io_utils::ensure_directories;
+use processing::process_single_repository; 
 use repository::Repository;
 use std::path::PathBuf;
-use std::sync::Arc;
 use tokio::fs;
 
 /// Processes a list of GitHub URLs concurrently, downloads and processes content,
@@ -18,6 +19,7 @@ pub async fn process_github_urls(
     no_headers: bool,
     merge_files: bool,
     ignore_file: Option<PathBuf>,
+    split_folders: Option<Vec<String>>,
     folder: Option<String>,
     pr: Option<u32>,
 ) -> Result<Vec<PathBuf>, String> {
@@ -30,23 +32,22 @@ pub async fn process_github_urls(
     let download_dir = PathBuf::from("./temp_repos");
     let output_dir = PathBuf::from("./output");
     ensure_directories(&download_dir, &output_dir).await?;
-
-    // Read ignore patterns
-    let ignore_patterns = Arc::new(read_ignore_patterns(ignore_file).await?);
-
+    
     // Spawn processing tasks
     let tasks: Vec<_> = urls
         .iter()
         .map(|url| {
             let repository = Repository::new(&download_dir, url);
-            let ignore_patterns = Arc::clone(&ignore_patterns);
+            let ignore_file_clone = ignore_file.clone();
+            let split_folders_clone = split_folders.clone();
             let folder = folder.clone();
             tokio::spawn(async move {
                 process_single_repository(
                     repository,
                     no_headers,
                     merge_files,
-                    ignore_patterns,
+                    ignore_file_clone,
+                    split_folders_clone,
                     folder,
                     pr,
                 )
@@ -81,6 +82,7 @@ pub async fn process_local_path(
     path: PathBuf,
     no_headers: bool,
     ignore_file: Option<PathBuf>,
+    split_folders: Option<Vec<String>>,
     folder: Option<String>,
 ) -> Result<Vec<PathBuf>, String> {
     if !path.is_dir() {
@@ -91,20 +93,19 @@ pub async fn process_local_path(
     let output_dir = PathBuf::from("./output");
     ensure_directories(&PathBuf::new(), &output_dir).await?; // No download dir needed
 
-    // Read ignore patterns
-    let ignore_patterns = read_ignore_patterns(ignore_file).await?;
-
     // Create a repository object from the local path
     let mut repository = Repository::from_local_path(&path);
     // Print full path for debugging
     println!("Processing local repository at path: {:?}", repository.path);
 
     // Process the files in the local directory
-    let content = process_repository_files(
+    // We pass None for merge_files as local path implies single repo (mostly)
+    let content = processing::process_repository_files(
         &repository.path,
         no_headers,
-        false, // merge_files is false since there is only one repo
-        &ignore_patterns,
+        false, 
+        ignore_file.as_deref(),
+        split_folders.as_deref(),
         folder.as_deref(),
     )
     .await?;

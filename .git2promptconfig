@@ -1,0 +1,30 @@
+# .git2promptconfig
+# Configuration file for git2prompt
+
+# List of patterns to ignore globally (in addition to .git2promptignore)
+# Supports standard gitignore syntax
+ignore_patterns = [
+    "*.log",
+    "tmp/",
+    "node_modules/",
+    "target/",
+    ".DS_Store"
+]
+
+# List of folders to automatically split into separate output files.
+# For example, if "docs" is listed, all files in the "docs" folder 
+# will go into a separate <repo>_docs_processed.md file.
+split_folders = [
+    "docs", 
+    "examples", 
+    "tests",
+    "src"
+]
+
+# Whether to remove file headers (path/to/file) above code blocks.
+# Default is false (headers are included).
+no_headers = false
+
+# Path to a custom ignore file.
+# Default is ".git2promptignore".
+ignore_file = ".git2promptignore"

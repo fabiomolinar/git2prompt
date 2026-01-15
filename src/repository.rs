@@ -1,4 +1,6 @@
+// src/repository.rs
 use std::{
+    collections::HashMap,
     fmt,
     path::{Path, PathBuf},
 };
@@ -8,7 +10,9 @@ pub struct Repository {
     pub url: String,
     pub name: String,
     pub path: PathBuf,
-    pub content: Option<String>,
+    // Content is now a HashMap to support splitting.
+    // Key: "default" for main content, or folder name for split content.
+    pub content: Option<HashMap<String, String>>,
 }
 
 impl Repository {
