@@ -130,10 +130,10 @@ As I am starting my journey with Rust, here it goes a few reminders so I don't h
 
 Before pushing to *crates.io*, run the following:
 
-1. `cargo fmt`
-2. `cargo build --release`
+1. `cargo clippy --fix`
+2. `cargo fmt`
 3. `cargo test`
-4. `cargo clippy`
+4. `cargo build --release`
 
 If all good:
 
