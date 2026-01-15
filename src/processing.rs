@@ -118,14 +118,13 @@ pub async fn process_repository_files(
     builder.git_ignore(true);
 
     // Add custom ignore file if provided
-    if let Some(ignore_path) = ignore_file_path {
-        if let Some(err) = builder.add_ignore(ignore_path) {
+    if let Some(ignore_path) = ignore_file_path
+        && let Some(err) = builder.add_ignore(ignore_path) {
             eprintln!(
                 "Warning: Error adding ignore file {:?}: {}",
                 ignore_path, err
             );
         }
-    }
 
     // Also look for .git2promptignore in the root by default if no custom file is passed
     // or as a standard practice for this tool
@@ -286,13 +285,12 @@ pub async fn handle_results(
 
         if merge_files {
             // Append default content
-            if let Some(content) = buckets.get("default") {
-                if !content.is_empty() {
+            if let Some(content) = buckets.get("default")
+                && !content.is_empty() {
                     merged_default_content
                         .push_str(&format!("## Repository: {}\n", repository.name));
                     merged_default_content.push_str(content);
                 }
-            }
 
             // Append split content
             for (bucket, content) in &buckets {
@@ -308,8 +306,8 @@ pub async fn handle_results(
             // Individual repo mode
 
             // 1. Process default bucket
-            if let Some(content) = buckets.get("default") {
-                if !content.is_empty() {
+            if let Some(content) = buckets.get("default")
+                && !content.is_empty() {
                     let output_file_name = format!("{}_processed.md", repository.name);
                     let output_path = output_dir.join(output_file_name);
                     let mut final_content = format!("# Repository: {}\n", repository.name);
@@ -317,7 +315,6 @@ pub async fn handle_results(
                     write_content_to_file(&output_path, &final_content).await?;
                     output_paths.push(output_path);
                 }
-            }
 
             // 2. Process split buckets
             for (bucket, content) in &buckets {
