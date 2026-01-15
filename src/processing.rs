@@ -86,7 +86,7 @@ pub async fn process_repository_files(
     folder: Option<&str>,
 ) -> Result<HashMap<String, String>, String> {
     let mut content_buckets: HashMap<String, String> = HashMap::new();
-    
+
     // Initialize default bucket
     content_buckets.insert("default".to_string(), String::new());
 
@@ -112,15 +112,18 @@ pub async fn process_repository_files(
 
     // Use ignore::WalkBuilder for standard gitignore compliance
     let mut builder = WalkBuilder::new(&base_path);
-    
+
     // Configure standard filters
     builder.hidden(false); // Do not ignore hidden files by default (except .git)
     builder.git_ignore(true);
-    
+
     // Add custom ignore file if provided
     if let Some(ignore_path) = ignore_file_path {
         if let Some(err) = builder.add_ignore(ignore_path) {
-             eprintln!("Warning: Error adding ignore file {:?}: {}", ignore_path, err);
+            eprintln!(
+                "Warning: Error adding ignore file {:?}: {}",
+                ignore_path, err
+            );
         }
     }
 
@@ -134,8 +137,8 @@ pub async fn process_repository_files(
         match result {
             Ok(entry) => {
                 let path = entry.path();
-                
-                // Skip directories and .git internal files (WalkBuilder handles .gitignore, 
+
+                // Skip directories and .git internal files (WalkBuilder handles .gitignore,
                 // but we still check .git dir structure just in case)
                 if path.is_dir() || path.components().any(|c| c.as_os_str() == ".git") {
                     continue;
@@ -153,7 +156,7 @@ pub async fn process_repository_files(
                         continue;
                     }
                 };
-                
+
                 // Determine which bucket this file belongs to
                 let bucket_key = determine_bucket(relative_path, split_folders);
 
@@ -182,7 +185,11 @@ pub async fn process_repository_files(
                     if with_headers {
                         // Use ### for merged files context, ## for single file context
                         let prefix = if merge_files { "###" } else { "##" };
-                        file_output.push_str(&format!("{} File: {}\n", prefix, relative_path.display()));
+                        file_output.push_str(&format!(
+                            "{} File: {}\n",
+                            prefix,
+                            relative_path.display()
+                        ));
                     }
 
                     // Add warning note for markdown files
@@ -203,16 +210,15 @@ pub async fn process_repository_files(
                         bucket_content.push_str(&file_output);
                     } else {
                         // Fallback to default if bucket somehow missing
-                         if let Some(default_content) = content_buckets.get_mut("default") {
+                        if let Some(default_content) = content_buckets.get_mut("default") {
                             default_content.push_str(&file_output);
-                         }
+                        }
                     }
-
                 } else {
                     // Fail silently for read errors (likely binary or permissions), or log verbose
                     // eprintln!("Warning: Could not read file {:?}", path);
                 }
-            },
+            }
             Err(err) => eprintln!("Error walking directory: {}", err),
         }
     }
@@ -239,7 +245,21 @@ fn is_binary_extension(path: &Path) -> bool {
     if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
         matches!(
             ext,
-            "png" | "jpg" | "jpeg" | "gif" | "zip" | "tar" | "gz" | "bin" | "o" | "so" | "dll" | "der" | "exe" | "pdf" | "ico"
+            "png"
+                | "jpg"
+                | "jpeg"
+                | "gif"
+                | "zip"
+                | "tar"
+                | "gz"
+                | "bin"
+                | "o"
+                | "so"
+                | "dll"
+                | "der"
+                | "exe"
+                | "pdf"
+                | "ico"
         )
     } else {
         false
@@ -253,7 +273,7 @@ pub async fn handle_results(
     output_dir: &std::path::Path,
 ) -> Result<Vec<PathBuf>, String> {
     let mut output_paths = Vec::new();
-    
+
     // For merged content (all repos in one file)
     let mut merged_default_content = String::new();
     // For merged content in split folders (e.g. all "src" folders from all repos)
@@ -268,23 +288,25 @@ pub async fn handle_results(
             // Append default content
             if let Some(content) = buckets.get("default") {
                 if !content.is_empty() {
-                    merged_default_content.push_str(&format!("## Repository: {}\n", repository.name));
+                    merged_default_content
+                        .push_str(&format!("## Repository: {}\n", repository.name));
                     merged_default_content.push_str(content);
                 }
             }
 
             // Append split content
             for (bucket, content) in &buckets {
-                if bucket == "default" || content.is_empty() { continue; }
-                
+                if bucket == "default" || content.is_empty() {
+                    continue;
+                }
+
                 let merged_bucket = merged_split_content.entry(bucket.clone()).or_default();
                 merged_bucket.push_str(&format!("## Repository: {}\n", repository.name));
                 merged_bucket.push_str(content);
             }
-
         } else {
             // Individual repo mode
-            
+
             // 1. Process default bucket
             if let Some(content) = buckets.get("default") {
                 if !content.is_empty() {
@@ -299,14 +321,16 @@ pub async fn handle_results(
 
             // 2. Process split buckets
             for (bucket, content) in &buckets {
-                if bucket == "default" || content.is_empty() { continue; }
-                
+                if bucket == "default" || content.is_empty() {
+                    continue;
+                }
+
                 // e.g. repo-name_src_processed.md
                 // Sanitize bucket name for filename
                 let safe_bucket = bucket.replace("/", "_").replace("\\", "_");
                 let output_file_name = format!("{}_{}_processed.md", repository.name, safe_bucket);
                 let output_path = output_dir.join(output_file_name);
-                
+
                 let mut final_content = format!("# Repository: {} ({})\n", repository.name, bucket);
                 final_content.push_str(content);
                 write_content_to_file(&output_path, &final_content).await?;
@@ -319,7 +343,8 @@ pub async fn handle_results(
     if merge_files {
         if !merged_default_content.is_empty() {
             let output_path = output_dir.join("all_repos_processed.md");
-            let final_content = String::from("# Merged Repository Contents\n") + &merged_default_content;
+            let final_content =
+                String::from("# Merged Repository Contents\n") + &merged_default_content;
             write_content_to_file(&output_path, &final_content).await?;
             output_paths.push(output_path);
         }
@@ -327,8 +352,10 @@ pub async fn handle_results(
         for (bucket, content) in merged_split_content {
             if !content.is_empty() {
                 let safe_bucket = bucket.replace("/", "_").replace("\\", "_");
-                let output_path = output_dir.join(format!("all_repos_{}_processed.md", safe_bucket));
-                let final_content = format!("# Merged Repository Contents ({})\n", bucket) + &content;
+                let output_path =
+                    output_dir.join(format!("all_repos_{}_processed.md", safe_bucket));
+                let final_content =
+                    format!("# Merged Repository Contents ({})\n", bucket) + &content;
                 write_content_to_file(&output_path, &final_content).await?;
                 output_paths.push(output_path);
             }

@@ -60,7 +60,9 @@ async fn test_process_repository_files() -> Result<(), Box<dyn std::error::Error
             .await
             .unwrap();
 
-    let content_with_headers = buckets_with_headers.get("default").expect("Default bucket missing");
+    let content_with_headers = buckets_with_headers
+        .get("default")
+        .expect("Default bucket missing");
 
     assert!(content_with_headers.contains(&format!("## File: {}", src_main_path.display())));
     assert!(content_with_headers.contains("fn main() { println!(\"Hello\"); }"));
@@ -78,8 +80,10 @@ async fn test_process_repository_files() -> Result<(), Box<dyn std::error::Error
         process_repository_files(&test_repo_path, true, false, None, None, None)
             .await
             .unwrap();
-    
-    let content_no_headers = buckets_no_headers.get("default").expect("Default bucket missing");
+
+    let content_no_headers = buckets_no_headers
+        .get("default")
+        .expect("Default bucket missing");
 
     assert!(!content_no_headers.contains(&format!("## File: {}", src_main_path.display())));
     assert!(content_no_headers.contains("fn main() { println!(\"Hello\"); }"));
@@ -92,22 +96,20 @@ async fn test_process_repository_files() -> Result<(), Box<dyn std::error::Error
     );
 
     // Case 3: Merged files (Header check changes from ## to ###)
-    let buckets_merged =
-        process_repository_files(&test_repo_path, false, true, None, None, None)
-            .await
-            .unwrap();
-    
-    let content_merged = buckets_merged.get("default").expect("Default bucket missing");
+    let buckets_merged = process_repository_files(&test_repo_path, false, true, None, None, None)
+        .await
+        .unwrap();
 
-    assert!(
-        content_merged.contains(&format!("### File: {}", src_main_path.display()))
-    );
+    let content_merged = buckets_merged
+        .get("default")
+        .expect("Default bucket missing");
+
+    assert!(content_merged.contains(&format!("### File: {}", src_main_path.display())));
     assert!(content_merged.contains("fn main() { println!(\"Hello\"); }"));
     assert!(content_merged.contains(&format!("### File: {}", readme_path.display())));
     assert!(content_merged.contains("### Test Repo"));
     assert!(
-        content_merged
-            .contains("> **Note to AI agents:** Headers in this file have been modified")
+        content_merged.contains("> **Note to AI agents:** Headers in this file have been modified")
     );
 
     Ok(())
@@ -140,11 +142,11 @@ async fn test_ignore_patterns_file_based() -> Result<(), Box<dyn std::error::Err
     fs::write(test_repo_path.join("data/secret.txt"), "This is a secret.").await?;
     fs::write(test_repo_path.join("README.md"), "# README").await?;
     fs::write(test_repo_path.join("src/main.rs"), "fn main() {}").await?;
-    
+
     // Create a custom ignore file
     let ignore_file_name = ".customignore";
     let ignore_path = test_repo_path.join(ignore_file_name);
-    
+
     // IMPORTANT:
     // 1. We must ignore the .customignore file itself, otherwise it appears in output.
     // 2. We use "*.rs" instead of "src/main.rs" to avoid Windows/Unix path separator mismatches in this specific test.
@@ -158,28 +160,41 @@ async fn test_ignore_patterns_file_based() -> Result<(), Box<dyn std::error::Err
 
     // Pass the ignore file path to the processor
     let buckets = processing::process_repository_files(
-        &abs_repo_path, 
-        true, 
-        true, 
-        Some(&abs_ignore_path), 
-        None, 
-        None
-    ).await?;
+        &abs_repo_path,
+        true,
+        true,
+        Some(&abs_ignore_path),
+        None,
+        None,
+    )
+    .await?;
 
     let content = buckets.get("default").unwrap();
 
     // Verify files were ignored using strict header check (safest) OR content check
     // "secret.txt" content is "This is a secret."
-    assert!(!content.contains("This is a secret."), "Should NOT contain data/secret.txt content");
-    
-    // "README.md" content is "# README". 
+    assert!(
+        !content.contains("This is a secret."),
+        "Should NOT contain data/secret.txt content"
+    );
+
+    // "README.md" content is "# README".
     // We check for the header because the ignore file content itself might appear in debug logs or errors,
     // but here we ignored the ignore file too.
-    assert!(!content.contains("## File: README.md"), "Should NOT contain README.md file header");
-    assert!(!content.contains("# README"), "Should NOT contain README.md content");
+    assert!(
+        !content.contains("## File: README.md"),
+        "Should NOT contain README.md file header"
+    );
+    assert!(
+        !content.contains("# README"),
+        "Should NOT contain README.md content"
+    );
 
     // "main.rs" content is "fn main() {}"
-    assert!(!content.contains("fn main() {}"), "Should NOT contain main.rs content");
+    assert!(
+        !content.contains("fn main() {}"),
+        "Should NOT contain main.rs content"
+    );
 
     Ok(())
 }
@@ -191,24 +206,25 @@ async fn test_git_ignore_advanced_syntax() -> Result<(), Box<dyn std::error::Err
     let _cleanup = TestCleanup::new(&test_repo_path);
 
     fs::create_dir_all(&test_repo_path).await?;
-    
+
     // Create files
     fs::write(test_repo_path.join("keep.rs"), "keep").await?;
     fs::write(test_repo_path.join("ignore.log"), "log").await?;
     fs::write(test_repo_path.join("temp.swp"), "swp").await?;
-    
+
     // Create a standard .git2promptignore file which is automatically picked up
     let ignore_content = "*.log\n*.swp";
     fs::write(test_repo_path.join(".git2promptignore"), ignore_content).await?;
 
     let buckets = processing::process_repository_files(
-        &test_repo_path, 
-        true, 
-        false, 
+        &test_repo_path,
+        true,
+        false,
         None, // No custom file, rely on .git2promptignore discovery
-        None, 
-        None
-    ).await?;
+        None,
+        None,
+    )
+    .await?;
 
     let content = buckets.get("default").unwrap();
 
@@ -230,7 +246,7 @@ async fn test_split_folders() -> Result<(), Box<dyn std::error::Error>> {
     //   docs/info.md
     //   docs/internal/secret.md
     //   README.md
-    
+
     fs::create_dir_all(test_repo_path.join("src")).await?;
     fs::create_dir_all(test_repo_path.join("docs/internal")).await?;
 
@@ -242,20 +258,21 @@ async fn test_split_folders() -> Result<(), Box<dyn std::error::Error>> {
     let split_folders = vec!["docs".to_string()];
 
     let buckets = processing::process_repository_files(
-        &test_repo_path, 
-        true, 
-        false, 
-        None, 
-        Some(&split_folders), 
-        None
-    ).await?;
+        &test_repo_path,
+        true,
+        false,
+        None,
+        Some(&split_folders),
+        None,
+    )
+    .await?;
 
     // Check "default" bucket
     let default_content = buckets.get("default").expect("Default bucket missing");
     assert!(default_content.contains("fn main() {}"));
     assert!(default_content.contains("# Root"));
     assert!(!default_content.contains("Documentation")); // Should be moved
-    assert!(!default_content.contains("Deep Docs"));     // Should be moved
+    assert!(!default_content.contains("Deep Docs")); // Should be moved
 
     // Check "docs" bucket
     let docs_content = buckets.get("docs").expect("Docs bucket missing");

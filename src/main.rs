@@ -26,11 +26,7 @@ struct Args {
 
     /// Path to a file containing a list of files/folders to ignore.
     /// Standard .gitignore syntax is supported.
-    #[clap(
-        long,
-        value_name = "PATH",
-        default_value = ".git2promptignore"
-    )]
+    #[clap(long, value_name = "PATH", default_value = ".git2promptignore")]
     ignore_file: PathBuf,
 
     /// Configuration file path.
@@ -66,16 +62,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if !config_path.exists() && args.local && args.sources.len() == 1 {
         let local_repo_config = PathBuf::from(&args.sources[0]).join(".git2promptconfig");
         if local_repo_config.exists() {
-            println!("Configuration file found in local repository: {:?}", local_repo_config);
+            println!(
+                "Configuration file found in local repository: {:?}",
+                local_repo_config
+            );
             config_path = local_repo_config;
         }
     }
 
     // 3. Load configuration
     let config = Config::load_from_file(&config_path).await;
-    
+
     // --- Merge Settings (CLI takes precedence) ---
-    
+
     // Headers: CLI arg OR Config file OR default(false)
     let final_no_headers = if args.no_headers {
         true
@@ -85,7 +84,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Ignore file: CLI arg OR Config OR default
     // We check if the user provided a custom path or if we should fall back to config
-    let final_ignore_file = if args.ignore_file.to_string_lossy() == ".git2promptignore" && config.ignore_file.is_some() {
+    let final_ignore_file = if args.ignore_file.to_string_lossy() == ".git2promptignore"
+        && config.ignore_file.is_some()
+    {
         PathBuf::from(config.ignore_file.unwrap())
     } else {
         args.ignore_file
@@ -113,7 +114,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Err(_) => {
                 // Warning only if it's a custom path that failed
                 if final_ignore_file.to_string_lossy() != ".git2promptignore" {
-                     eprintln!(
+                    eprintln!(
                         "Warning: Ignore file {:?} not found. Proceeding without it.",
                         final_ignore_file
                     );
@@ -126,14 +127,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("No file headers: {}", final_no_headers);
         println!("Split folders: {:?}", final_split_folders_opt);
         println!("----------------------------------------");
-        
+
         process_local_path(
-            local_path, 
-            final_no_headers, 
-            ignore_canonical, 
-            final_split_folders_opt, 
-            args.folder
-        ).await
+            local_path,
+            final_no_headers,
+            ignore_canonical,
+            final_split_folders_opt,
+            args.folder,
+        )
+        .await
     } else {
         // --- GITHUB URL MODE (default) ---
         println!("Repositories to process: {:?}", args.sources);
@@ -144,7 +146,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Folder to process: {:?}", args.folder);
         println!("Pull request number: {:?}", args.pr);
         println!("----------------------------------------");
-        
+
         process_github_urls(
             args.sources,
             final_no_headers,

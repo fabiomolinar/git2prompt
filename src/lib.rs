@@ -7,7 +7,7 @@ pub mod repository;
 
 use futures::future::join_all;
 use io_utils::ensure_directories;
-use processing::process_single_repository; 
+use processing::process_single_repository;
 use repository::Repository;
 use std::path::PathBuf;
 use tokio::fs;
@@ -32,7 +32,7 @@ pub async fn process_github_urls(
     let download_dir = PathBuf::from("./temp_repos");
     let output_dir = PathBuf::from("./output");
     ensure_directories(&download_dir, &output_dir).await?;
-    
+
     // Spawn processing tasks
     let tasks: Vec<_> = urls
         .iter()
@@ -103,7 +103,7 @@ pub async fn process_local_path(
     let content = processing::process_repository_files(
         &repository.path,
         no_headers,
-        false, 
+        false,
         ignore_file.as_deref(),
         split_folders.as_deref(),
         folder.as_deref(),
